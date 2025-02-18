@@ -8,8 +8,8 @@ import dayjs from 'dayjs';
 import type { RangePickerProps } from 'antd/es/date-picker';
 import type { DataNode, TreeProps, EventDataNode } from 'antd/es/tree';
 import type { Key } from 'rc-tree/lib/interface';
-import { StockSearch } from './StockSearch';
 import type { MenuProps } from 'antd';
+import { StockSearch } from './StockSearch';
 
 const { Sider, Content } = Layout;
 const { Search } = Input;
@@ -35,12 +35,6 @@ interface AlertData {
   message: string;
   value: number;
   threshold: number;
-}
-
-// 添加搜索选项的接口定义
-interface SearchOption {
-  value: string;
-  label: React.ReactNode;  // 改为 ReactNode 类型以支持 JSX
 }
 
 // 添加 WatchlistData 接口
