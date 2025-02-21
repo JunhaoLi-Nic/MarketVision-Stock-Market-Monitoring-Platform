@@ -179,6 +179,12 @@ class GroupReorder(BaseModel):
     target_group: str
     position: str  # 'before' or 'after'
 
+class StockReorder(BaseModel):
+    group: str
+    source_symbol: str
+    target_symbol: str
+    position: str  # 'before' or 'after'
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting up FastAPI application")
@@ -587,4 +593,54 @@ async def reorder_groups(reorder: GroupReorder):
         raise
     except Exception as e:
         logger.error(f"Error reordering groups: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/watchlist/reorder")
+async def reorder_stocks(reorder: StockReorder):
+    try:
+        logger.info(f"Reordering stock {reorder.source_symbol} {reorder.position} {reorder.target_symbol} in group {reorder.group}")
+        
+        # 加载当前的 watchlist
+        watchlist = load_watchlist()
+        
+        # 检查分组是否存在
+        if reorder.group not in watchlist:
+            raise HTTPException(status_code=404, detail=f"分组 {reorder.group} 不存在")
+            
+        # 获取分组中的股票列表
+        stocks = watchlist[reorder.group]["stocks"]
+        
+        # 检查源股票和目标股票是否存在
+        if reorder.source_symbol not in stocks:
+            raise HTTPException(status_code=404, detail=f"股票 {reorder.source_symbol} 不在分组中")
+        if reorder.target_symbol not in stocks:
+            raise HTTPException(status_code=404, detail=f"股票 {reorder.target_symbol} 不在分组中")
+            
+        # 从列表中移除源股票
+        stocks.remove(reorder.source_symbol)
+        
+        # 找到目标股票的位置
+        target_index = stocks.index(reorder.target_symbol)
+        
+        # 根据位置重新插入源股票
+        new_index = target_index if reorder.position == 'before' else target_index + 1
+        stocks.insert(new_index, reorder.source_symbol)
+        
+        # 保存更改
+        save_watchlist(watchlist)
+        
+        # 更新全局变量
+        global STOCK_GROUPS
+        STOCK_GROUPS = watchlist
+        
+        return {
+            "status": "success",
+            "message": f"已重新排序股票 {reorder.source_symbol}",
+            "groups": watchlist
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reordering stocks: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

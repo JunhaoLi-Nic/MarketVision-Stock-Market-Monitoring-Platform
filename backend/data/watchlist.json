@@ -7,9 +7,9 @@
   "观察": {
     "description": null,
     "stocks": [
+      "XIACY",
       "BABA",
-      "HIMS",
-      "XIACY"
+      "HIMS"
     ],
     "subGroups": {}
   },

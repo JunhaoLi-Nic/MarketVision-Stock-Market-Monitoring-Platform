@@ -328,17 +328,56 @@ const StockDashboard: React.FC = () => {
         }
       }
 
-      // 确定目标分组
+      // 确定目标位置和分组
       if (dropKey.startsWith('folder-')) {
+        // 如果拖到文件夹上，移动到该文件夹
         toGroup = dropKey.replace('folder-', '');
-      } else {
-        // 如果拖到了未分组区域
-        toGroup = '默认分组';
-      }
+      } else if (dropKey.startsWith('stock-')) {
+        // 如果拖到另一个股票上，可能是重新排序或移动到其他分组
+        const targetSymbol = dropKey.replace('stock-', '');
+        
+        // 找到目标股票所在的分组
+        for (const [groupName, group] of Object.entries(watchlist.groups)) {
+          if (group.stocks.includes(targetSymbol)) {
+            toGroup = groupName;
+            break;
+          }
+        }
 
-      // 如果没有找到源分组，设为默认分组
-      if (!fromGroup) {
-        fromGroup = '默认分组';
+        // 如果在同一个分组内，执行重新排序
+        if (fromGroup === toGroup) {
+          try {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist/reorder`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                group: fromGroup,
+                source_symbol: symbol,
+                target_symbol: targetSymbol,
+                position: dropPosition === -1 ? 'before' : 'after'
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || '重新排序失败');
+            }
+
+            const data = await response.json();
+            setWatchlist({ groups: data.groups });
+            message.success('重新排序成功');
+            return;
+          } catch (error) {
+            console.error('重新排序失败:', error);
+            message.error(error instanceof Error ? error.message : '重新排序失败');
+            return;
+          }
+        }
+      } else {
+        // 如果拖到未分组区域
+        toGroup = '默认分组';
       }
 
       // 如果源分组和目标分组相同，不执行移动
