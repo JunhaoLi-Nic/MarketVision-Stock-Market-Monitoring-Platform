@@ -2,18 +2,14 @@
   "默认分组": {
     "description": "默认分组",
     "stocks": [
-      "ABNB",
-      "XIACY"
+      "ABNB"
     ],
     "subGroups": {}
   },
   "科技股": {
     "description": null,
     "stocks": [
-      "NVDA",
-      "TSLA",
-      "GOOGL",
-      "AAPL"
+      "NVDA"
     ]
   },
   "消费": {
@@ -27,8 +23,7 @@
     "stocks": [
       "ABNB",
       "HIMS",
-      "BABA",
-      "XIACF"
+      "BABA"
     ],
     "subGroups": {}
   }

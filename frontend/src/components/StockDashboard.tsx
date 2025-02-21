@@ -145,8 +145,21 @@ const StockDashboard: React.FC = () => {
   const fetchWatchlist = async () => {
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist`);
+      if (!response.ok) {
+        throw new Error('获取观察列表失败');
+      }
       const data = await response.json();
-      setWatchlist(data);
+      
+      // 完全替换现有的 watchlist 状态
+      setWatchlist({ groups: data.groups || {} });
+      
+      // 清理 stockRefs
+      stockRefs.current = {};
+      
+      // 清除选中状态
+      setSelectedStock(null);
+      setSelectedKeys([]);
+      
       // 默认展开所有分组
       setExpandedKeys(getAllFolderKeys(data.groups));
     } catch (error) {
@@ -188,25 +201,80 @@ const StockDashboard: React.FC = () => {
     return allStocks.filter(stock => !groupedStocks.has(stock));
   };
 
-  // 添加删除股票的处理函数
+  // 修改 handleDeleteStock 函数
   const handleDeleteStock = async (groupName: string, symbol: string) => {
     try {
+      // 首先找到股票实际所在的分组
+      let actualGroup = groupName;
+      if (groupName === '默认分组') {
+        // 查找股票实际所在的分组
+        for (const [name, group] of Object.entries(watchlist.groups)) {
+          if (group.stocks.includes(symbol)) {
+            actualGroup = name;
+            break;
+          }
+        }
+      }
+
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/watchlist/${groupName}/${symbol}`,
+        `${process.env.REACT_APP_API_URL}/api/watchlist/${encodeURIComponent(actualGroup)}/${encodeURIComponent(symbol)}`,
         {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          }
         }
       );
 
       if (!response.ok) {
-        throw new Error('删除股票失败');
+        const errorData = await response.json();
+        throw new Error(errorData.error || '删除股票失败');
       }
 
-      await fetchWatchlist();
-      message.success('删除成功');
+      // 删除成功后立即更新状态
+      setWatchlist(prevState => {
+        const newState = {
+          groups: { ...prevState.groups }
+        };
+        
+        // 从指定分组中删除股票
+        if (newState.groups[actualGroup]) {
+          newState.groups[actualGroup] = {
+            ...newState.groups[actualGroup],
+            stocks: newState.groups[actualGroup].stocks.filter(s => s !== symbol)
+          };
+        }
+
+        // 如果是默认分组，还需要确保从其他分组中也删除该股票
+        if (actualGroup === "默认分组") {
+          Object.keys(newState.groups).forEach(group => {
+            if (group !== "默认分组") {
+              newState.groups[group] = {
+                ...newState.groups[group],
+                stocks: newState.groups[group].stocks.filter(s => s !== symbol)
+              };
+            }
+          });
+        }
+
+        return newState;
+      });
+
+      // 如果删除的是当前选中的股票，清除选中状态
+      if (selectedStock === symbol) {
+        setSelectedStock(null);
+      }
+
+      // 从 stockRefs 中移除引用
+      delete stockRefs.current[symbol];
+
+      // 清除选中状态
+      setSelectedKeys(prevKeys => prevKeys.filter(key => key !== `stock-${symbol}`));
+
+      message.success(`成功从 ${actualGroup} 删除 ${symbol}`);
     } catch (error) {
       console.error('删除股票失败:', error);
-      message.error('删除股票失败');
+      message.error(error instanceof Error ? error.message : '删除股票失败');
     }
   };
 
@@ -267,37 +335,61 @@ const StockDashboard: React.FC = () => {
     
     // 处理股票的拖拽
     if (dragKey.startsWith('stock-')) {
-      if (!dropKey.startsWith('folder-')) {
-        message.error('只能移动到文件夹中');
+      const symbol = dragKey.replace('stock-', '');
+      let fromGroup = '';
+      let toGroup = '';
+
+      // 确定源分组
+      for (const [groupName, group] of Object.entries(watchlist.groups)) {
+        if (group.stocks.includes(symbol)) {
+          fromGroup = groupName;
+          break;
+        }
+      }
+
+      // 确定目标分组
+      if (dropKey.startsWith('folder-')) {
+        toGroup = dropKey.replace('folder-', '');
+      } else {
+        // 如果拖到了未分组区域
+        toGroup = '默认分组';
+      }
+
+      // 如果没有找到源分组，设为默认分组
+      if (!fromGroup) {
+        fromGroup = '默认分组';
+      }
+
+      // 如果源分组和目标分组相同，不执行移动
+      if (fromGroup === toGroup) {
         return;
       }
-      
-      const targetGroup = dropKey.replace('folder-', '');
-      
-      // 获取要移动的所有股票
-      let stocksToMove: string[] = [];
-      if (selectedKeys.length > 1 && selectedKeys.includes(dragKey)) {
-        // 如果有多个选中项且包含被拖拽的项，移动所有选中的股票
-        stocksToMove = selectedKeys
-          .filter(key => typeof key === 'string' && key.startsWith('stock-'))
-          .map(key => (key as string).replace('stock-', ''));
-      } else {
-        // 否则只移动被拖拽的股票
-        stocksToMove = [dragKey.replace('stock-', '')];
-      }
-      
+
       try {
+        // 获取要移动的所有股票
+        let stocksToMove: string[] = [];
+        if (selectedKeys.length > 1 && selectedKeys.includes(dragKey)) {
+          // 如果有多个选中项且包含被拖拽的项，移动所有选中的股票
+          stocksToMove = selectedKeys
+            .filter(key => typeof key === 'string' && key.startsWith('stock-'))
+            .map(key => (key as string).replace('stock-', ''));
+        } else {
+          // 否则只移动被拖拽的股票
+          stocksToMove = [symbol];
+        }
+
         // 依次移动每个股票
-        for (const symbol of stocksToMove) {
+        for (const stockSymbol of stocksToMove) {
+          console.log(`Moving stock ${stockSymbol} from ${fromGroup} to ${toGroup}`);
           const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist/move`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              symbol,
-              from_group: "默认分组",
-              to_group: targetGroup,
+              symbol: stockSymbol,
+              from_group: fromGroup,
+              to_group: toGroup,
             }),
           });
 
@@ -306,9 +398,33 @@ const StockDashboard: React.FC = () => {
             throw new Error(errorData.error || '移动股票失败');
           }
         }
-        
-        await fetchWatchlist();
-        message.success(`成功移动 ${stocksToMove.length} 个股票`);
+
+        // 移动成功后立即更新状态
+        setWatchlist(prevState => {
+          const newState = {
+            groups: { ...prevState.groups }
+          };
+
+          // 从源分组中移除股票
+          if (newState.groups[fromGroup]) {
+            newState.groups[fromGroup] = {
+              ...newState.groups[fromGroup],
+              stocks: newState.groups[fromGroup].stocks.filter(s => !stocksToMove.includes(s))
+            };
+          }
+
+          // 添加到目标分组
+          if (newState.groups[toGroup]) {
+            newState.groups[toGroup] = {
+              ...newState.groups[toGroup],
+              stocks: [...newState.groups[toGroup].stocks, ...stocksToMove]
+            };
+          }
+
+          return newState;
+        });
+
+        message.success(`成功移动 ${stocksToMove.length} 个股票到 ${toGroup}`);
         setSelectedKeys([]); // 清除选中状态
       } catch (error) {
         console.error('移动股票失败:', error);
@@ -417,7 +533,6 @@ const StockDashboard: React.FC = () => {
 
   // 修改 generateTreeData 函数
   const generateTreeData = (group: StockGroup, groupPath: string): DataNode => {
-    // 先创建股票节点
     const stockNodes: DataNode[] = group.stocks.map((stock: string) => ({
       title: (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -432,7 +547,7 @@ const StockDashboard: React.FC = () => {
                   key: 'delete',
                   icon: <DeleteOutlined />,
                   label: '删除',
-                  onClick: () => handleDeleteStock('默认分组', stock)
+                  onClick: () => handleDeleteStock(groupPath, stock)
                 }
               ]
             }}

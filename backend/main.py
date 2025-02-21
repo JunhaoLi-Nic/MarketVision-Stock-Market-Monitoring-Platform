@@ -219,13 +219,33 @@ async def get_watchlist():
 @app.delete("/api/watchlist/{group}/{symbol}")
 async def remove_stock(group: str, symbol: str):
     try:
-        if group not in STOCK_GROUPS or symbol not in STOCK_GROUPS[group]["stocks"]:
-            raise HTTPException(status_code=404, detail="Stock not found")
-        STOCK_GROUPS[group]["stocks"].remove(symbol)
+        # 加载当前的 watchlist
+        watchlist = load_watchlist()
+        
+        # 检查分组是否存在
+        if group not in watchlist:
+            raise HTTPException(status_code=404, detail=f"分组 {group} 不存在")
+            
+        # 检查股票是否在该分组中
+        if symbol not in watchlist[group]["stocks"]:
+            raise HTTPException(status_code=404, detail=f"股票 {symbol} 不在分组 {group} 中")
+            
+        # 从分组中移除股票
+        watchlist[group]["stocks"].remove(symbol)
+        
         # 保存更改
-        save_watchlist(STOCK_GROUPS)
-        return {"status": "success", "message": f"Removed {symbol} from {group}"}
+        save_watchlist(watchlist)
+        
+        return {
+            "status": "success",
+            "message": f"已从 {group} 中删除 {symbol}",
+            "groups": watchlist
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"删除股票失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/groups")
@@ -339,45 +359,41 @@ async def move_stock(move: StockMove):
     try:
         logger.info(f"Moving stock {move.symbol} from {move.from_group} to {move.to_group}")
         
-        # 分割目标路径，处理嵌套的情况
-        path_parts = move.to_group.split('/')
+        # 加载当前的 watchlist
+        watchlist = load_watchlist()
         
-        # 递归查找目标分组
-        current_groups = STOCK_GROUPS
-        for i, part in enumerate(path_parts):
-            if i == len(path_parts) - 1:  # 最后一个部分
-                if part not in current_groups:
-                    raise HTTPException(status_code=404, detail=f"目标分组 {part} 不存在")
-                target_group = current_groups[part]
-                
-                # 检查股票是否已在目标分组中
-                if move.symbol in target_group["stocks"]:
-                    raise HTTPException(status_code=400, detail=f"股票 {move.symbol} 已在目标分组中")
-                
-                # 从所有分组中移除该股票
-                for group_name, group in STOCK_GROUPS.items():
-                    if move.symbol in group["stocks"]:
-                        group["stocks"].remove(move.symbol)
-                        logger.info(f"Removed {move.symbol} from {group_name}")
-                    
-                # 添加到目标分组
-                target_group["stocks"].append(move.symbol)
-                logger.info(f"Added {move.symbol} to {move.to_group}")
-            else:
-                if part not in current_groups:
-                    raise HTTPException(status_code=404, detail=f"分组 {part} 不存在")
-                if 'subGroups' not in current_groups[part]:
-                    current_groups[part]['subGroups'] = {}
-                current_groups = current_groups[part]['subGroups']
+        # 检查源分组是否存在
+        if move.from_group not in watchlist:
+            raise HTTPException(status_code=404, detail=f"源分组 {move.from_group} 不存在")
+            
+        # 检查目标分组是否存在
+        if move.to_group not in watchlist:
+            raise HTTPException(status_code=404, detail=f"目标分组 {move.to_group} 不存在")
+            
+        # 检查股票是否在源分组中
+        if move.symbol not in watchlist[move.from_group]["stocks"]:
+            raise HTTPException(status_code=404, detail=f"股票 {move.symbol} 不在分组 {move.from_group} 中")
+            
+        # 从源分组中移除股票
+        watchlist[move.from_group]["stocks"].remove(move.symbol)
         
+        # 添加到目标分组
+        if move.symbol not in watchlist[move.to_group]["stocks"]:
+            watchlist[move.to_group]["stocks"].append(move.symbol)
+            
         # 保存更改
-        save_watchlist(STOCK_GROUPS)
-        return {"status": "success", "message": f"已将 {move.symbol} 移动到 {move.to_group}"}
+        save_watchlist(watchlist)
+        
+        return {
+            "status": "success",
+            "message": f"已将 {move.symbol} 从 {move.from_group} 移动到 {move.to_group}",
+            "groups": watchlist
+        }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error moving stock: {str(e)}")
+        logger.error(f"移动股票失败: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/groups/move")
