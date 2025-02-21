@@ -619,7 +619,7 @@ const StockDashboard: React.FC = () => {
           <StockSearch 
             onSelect={(symbol) => {
               setSelectedStock(symbol);
-              fetchWatchlist();
+              fetchWatchlist();  // 刷新观察列表
             }} 
             style={{ width: '100%' }}
           />
@@ -654,13 +654,11 @@ const StockDashboard: React.FC = () => {
             selectedKeys={selectedKeys}
             onExpand={handleExpand}
             onSelect={(keys) => {
-              // 只允许选择股票节点
               const validKeys = keys.filter(key => 
                 typeof key === 'string' && key.startsWith('stock-')
               );
               setSelectedKeys(validKeys);
               
-              // 如果只选中了一个股票，还是要触发跳转
               if (validKeys.length === 1) {
                 const symbol = (validKeys[0] as string).replace('stock-', '');
                 setSelectedStock(symbol);
@@ -710,12 +708,13 @@ const StockDashboard: React.FC = () => {
         {/* 修改未分组股票的渲染 */}
         {getUngroupedStocks().length > 0 && (
           <div>
+            <h2 style={{ margin: '16px 0' }}>未分组股票</h2>
             {getUngroupedStocks().map(symbol => (
               <div 
                 key={symbol}
                 ref={(el: HTMLDivElement | null) => {
                   stockRefs.current[symbol] = el;
-                  return undefined;  // 显式返回 undefined
+                  return undefined;
                 }}
                 id={`stock-${symbol}`}
               >
@@ -739,7 +738,7 @@ const StockDashboard: React.FC = () => {
                   key={symbol}
                   ref={(el: HTMLDivElement | null) => {
                     stockRefs.current[symbol] = el;
-                    return undefined;  // 显式返回 undefined
+                    return undefined;
                   }}
                   id={`stock-${symbol}`}
                 >

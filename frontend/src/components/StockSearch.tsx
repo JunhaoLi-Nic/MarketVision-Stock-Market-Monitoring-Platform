@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { AutoComplete, Input, Spin, message } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { debounce } from 'lodash';
 import type { SelectProps } from 'antd/es/select';
 
@@ -10,7 +10,7 @@ interface StockSearchProps {
 }
 
 interface StockSuggestion {
-  ticker: string;
+  symbol: string;
   name: string;
   exchange: string;
   logo?: string;
@@ -118,30 +118,109 @@ export const StockSearch: React.FC<StockSearchProps> = ({ onSelect, style }) => 
   const formatAndSetOptions = (suggestions: StockSuggestion[]) => {
     const isMobile = window.innerWidth < 768;
     const formattedOptions = suggestions.map(item => ({
-      value: item.ticker,
+      value: item.symbol,
       label: (
-        <div style={styles.suggestionItem}>
-          <div style={styles.stockInfo}>
-            <span style={styles.ticker}>{item.ticker}</span>
-            <span style={styles.companyName}>
-              {formatCompanyName(item.name, isMobile)}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          padding: '8px 12px', 
+          width: '100%' 
+        }}>
+          {/* 左侧内容：股票代码和公司名称（垂直布局） */}
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '4px', 
+            flex: 1, // 关键：占据剩余空间
+            overflow: 'hidden' // 防止内容溢出
+          }}>
+            <span style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            minWidth: '120px', // 关键：固定最小宽度
+            marginLeft: '12px', // 与左侧内容保持间距
+            flexShrink: 0 // 禁止挤压
+          }}>{item.symbol}</span>
+            <span style={{ 
+              color: '#666', 
+              wordBreak: 'break-word' // 允许长名称换行
+            }}>
+              {item.name}
             </span>
           </div>
-          <div style={styles.rightSection}>
-            <span style={styles.exchangeTag}>{item.exchange}</span>
-            <PlusOutlined
-              style={styles.addButton}
+  
+          {/* 右侧内容：交易所代码和加号图标 */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            minWidth: '120px', // 关键：固定最小宽度
+            marginLeft: '12px', // 与左侧内容保持间距
+            flexShrink: 0 // 禁止挤压
+          }}>
+            <span style={{ fontSize: '12px', color: '#888' }}>
+              {item.exchange}
+            </span>
+            <PlusCircleOutlined
+              style={{ 
+                cursor: 'pointer', 
+                opacity: 0.6, 
+                fontSize: '20px',
+                flexShrink: 0 // 图标禁止挤压
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
               onClick={(e) => {
                 e.stopPropagation();
-                onSelect(item.ticker);
+                handleAddStock(item.symbol);
               }}
             />
           </div>
         </div>
       ),
     }));
-
     setOptions(formattedOptions);
+  };
+
+  const handleAddStock = async (symbol: string) => {
+    try {
+      console.log('开始添加股票:', symbol);
+      
+      const requestBody = {
+        symbol: symbol,
+        group: '默认分组'
+      };
+      
+      console.log('发送请求体:', requestBody);
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('添加股票响应状态:', response.status);
+      const data = await response.json();
+      console.log('添加股票响应数据:', data);
+
+      if (!response.ok) {
+        if (data.detail) {
+          throw new Error(Array.isArray(data.detail) ? data.detail[0].msg : data.detail);
+        }
+        throw new Error(data.error || '添加股票失败');
+      }
+
+      message.success(data.message || `成功添加 ${symbol} 到观察列表`);
+      onSelect(symbol);  // 通知父组件更新
+    } catch (error) {
+      console.error('添加股票失败:', error);
+      message.error(error instanceof Error ? error.message : '添加股票失败');
+    }
   };
 
   return (

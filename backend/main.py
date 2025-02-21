@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from services.stock_monitor import StockMonitor
 from services.alert_service import AlertService
@@ -54,9 +54,9 @@ async def validation_exception_handler(request, exc):
     )
 
 # 初始化服务
-stock_monitor = StockMonitor()
-alert_service = AlertService()
-stock_scanner = StockScanner()
+# stock_monitor = StockMonitor()
+# alert_service = AlertService()
+# stock_scanner = StockScanner()
 stock_analyzer = StockAnalyzer()
 
 # 创建数据目录
@@ -103,8 +103,60 @@ STOCK_GROUPS = load_watchlist()
 
 class StockAdd(BaseModel):
     symbol: str
-    name: Optional[str] = None
     group: Optional[str] = "默认分组"
+
+@app.post("/api/watchlist/add")
+async def add_to_watchlist(stock: StockAdd, request: Request):
+    try:
+        # 记录接收到的原始请求数据
+        raw_data = await request.json()
+        logger.info(f"Received raw request data: {raw_data}")
+        logger.info(f"Parsed stock data: {stock}")
+        logger.info(f"Adding stock {stock.symbol} to group {stock.group}")
+        
+        # # 验证股票代码是否存在于本地数据库
+        # stock_data_path = Path(__file__).parent / 'data' / 'us_stocks.json'
+        # with open(stock_data_path, 'r') as f:
+        #     stock_database = json.load(f)
+            
+        # if stock.symbol not in stock_database:
+        #     logger.error(f"Stock {stock.symbol} not found in database")
+        #     raise HTTPException(status_code=400, detail="无效的股票代码")
+        
+        # 确保分组存在
+        if stock.group not in STOCK_GROUPS:
+            logger.info(f"Creating new group {stock.group}")
+            STOCK_GROUPS[stock.group] = {
+                "description": stock.group,
+                "stocks": [],
+                "subGroups": {}
+            }
+        
+        # 检查股票是否已在分组中
+        if stock.symbol not in STOCK_GROUPS[stock.group]["stocks"]:
+            STOCK_GROUPS[stock.group]["stocks"].append(stock.symbol)
+            logger.info(f"Added {stock.symbol} to {stock.group}")
+            
+            # 保存更改
+            save_watchlist(STOCK_GROUPS)
+            return {
+                "success": True,
+                "message": f"成功添加 {stock.symbol} 到 {stock.group}",
+                "groups": STOCK_GROUPS
+            }
+        else:
+            logger.info(f"Stock {stock.symbol} already in group {stock.group}")
+            return {
+                "success": True,
+                "message": f"股票 {stock.symbol} 已在 {stock.group} 中",
+                "groups": STOCK_GROUPS
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding stock to watchlist: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 class StockGroup(BaseModel):
     name: str
@@ -147,82 +199,22 @@ async def get_watchlist():
         logger.error(f"Error in get_watchlist: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/alerts/{symbol}")
-async def check_alerts(symbol: str):
-    try:
-        alerts = stock_monitor.check_alerts(symbol)
-        return alerts
-    except Exception as e:
-        logger.error(f"Error checking alerts for {symbol}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.get("/api/alerts/{symbol}")
+# async def check_alerts(symbol: str):
+#     try:
+#         alerts = stock_monitor.check_alerts(symbol)
+#         return alerts
+#     except Exception as e:
+#         logger.error(f"Error checking alerts for {symbol}: {str(e)}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/scanner")
-async def scan_stocks():
-    try:
-        results = stock_scanner.scan_market()
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/watchlist/add")
-async def add_stock(stock: StockAdd):
-    try:
-        logger.info(f"Adding stock: {stock}")
-        # 验证股票是否存在
-        ticker = yf.Ticker(stock.symbol)
-        
-        # 获取股票信息
-        try:
-            hist = ticker.history(period='1d')
-            if hist.empty:
-                logger.error(f"No data available for symbol: {stock.symbol}")
-                raise ValueError("无法获取股票数据")
-                
-            # 如果能获取到历史数据，说明股票是有效的
-            info = ticker.info
-            logger.info(f"Stock info retrieved for {stock.symbol}")
-            
-        except Exception as e:
-            logger.error(f"Error fetching stock data: {str(e)}")
-            raise ValueError("无法获取股票数据")
-        
-        # 添加到指定分组
-        group = stock.group or "默认分组"
-        logger.info(f"Adding to group: {group}")
-        
-        if group not in STOCK_GROUPS:
-            logger.info(f"Creating new group: {group}")
-            STOCK_GROUPS[group] = {"description": f"{group}", "stocks": []}
-        
-        # 检查股票是否已存在于任何分组
-        for g in STOCK_GROUPS.values():
-            if stock.symbol in g["stocks"]:
-                logger.info(f"Stock {stock.symbol} already exists in watchlist")
-                return {
-                    "status": "success",
-                    "message": f"Stock {stock.symbol} already exists",
-                    "groups": STOCK_GROUPS
-                }
-        
-        # 添加新股票
-        STOCK_GROUPS[group]["stocks"].append(stock.symbol)
-        logger.info(f"Added {stock.symbol} to {group}")
-        
-        # 保存更改
-        save_watchlist(STOCK_GROUPS)
-        logger.info("Watchlist saved successfully")
-            
-        return {
-            "status": "success",
-            "message": f"Added {stock.symbol} to {group}",
-            "groups": STOCK_GROUPS
-        }
-    except ValueError as e:
-        logger.error(f"ValueError: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error adding stock: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+# @app.get("/api/scanner")
+# async def scan_stocks():
+#     try:
+#         results = stock_scanner.scan_market()
+#         return results
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/watchlist/{group}/{symbol}")
 async def remove_stock(group: str, symbol: str):
@@ -302,7 +294,6 @@ async def search_stocks(query: str):
                             'name': item.get('longname') or item.get('shortname'),
                             'exchange': item.get('exchange')
                         })
-                
                 return suggestions
                 
             except requests.exceptions.RequestException as e:
