@@ -185,6 +185,11 @@ class StockReorder(BaseModel):
     target_symbol: str
     position: str  # 'before' or 'after'
 
+# 添加新的 Pydantic 模型用于备注
+class StockNote(BaseModel):
+    symbol: str
+    note: str
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting up FastAPI application")
@@ -643,4 +648,46 @@ async def reorder_stocks(reorder: StockReorder):
         raise
     except Exception as e:
         logger.error(f"Error reordering stocks: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stock/note/{symbol}")
+async def get_stock_note(symbol: str):
+    """获取股票备注"""
+    try:
+        # 从文件加载备注数据
+        notes_file = data_dir / 'stock_notes.json'
+        if not notes_file.exists():
+            return {"note": ""}
+            
+        with open(notes_file, 'r', encoding='utf-8') as f:
+            notes = json.load(f)
+            
+        return {"note": notes.get(symbol, "")}
+    except Exception as e:
+        logger.error(f"Error getting note for {symbol}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/stock/note")
+async def update_stock_note(note: StockNote):
+    """更新股票备注"""
+    try:
+        notes_file = data_dir / 'stock_notes.json'
+        
+        # 加载现有备注
+        if notes_file.exists():
+            with open(notes_file, 'r', encoding='utf-8') as f:
+                notes = json.load(f)
+        else:
+            notes = {}
+            
+        # 更新备注
+        notes[note.symbol] = note.note
+        
+        # 保存更新后的备注
+        with open(notes_file, 'w', encoding='utf-8') as f:
+            json.dump(notes, f, ensure_ascii=False, indent=2)
+            
+        return {"success": True, "message": "备注已更新"}
+    except Exception as e:
+        logger.error(f"Error updating note: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -12,7 +12,7 @@ import type { MenuProps } from 'antd';
 import { StockSearch } from './StockSearch';
 
 const { Sider, Content } = Layout;
-const { Search } = Input;
+const { Search, TextArea } = Input;
 
 interface StockCardProps {
   symbol: string;
@@ -52,6 +52,101 @@ const timeframeOptions = [
 ];
 
 const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange }) => {
+  const [note, setNote] = useState<string>("");
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [editedNote, setEditedNote] = useState<string>("");
+  const noteEditorRef = React.useRef<HTMLDivElement>(null);
+  const analysisColRef = React.useRef<HTMLDivElement>(null);
+
+  // 计算编辑窗口位置的函数
+  const calculateEditorPosition = () => {
+    if (analysisColRef.current) {
+      const rect = analysisColRef.current.getBoundingClientRect();
+      return {
+        top: rect.top - 210, // 在分析报告上方20px
+        left: rect.left,
+      };
+    }
+    return null;
+  };
+
+  // 修改点击外部处理函数
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (noteEditorRef.current && !noteEditorRef.current.contains(event.target as Node)) {
+        setIsEditingNote(true);  
+      }
+    };
+
+    if (isEditingNote) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isEditingNote]);
+
+  // 获取备注
+  useEffect(() => {
+    const fetchNote = async () => {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/stock/note/${symbol}`);
+        if (response.ok) {
+          const data = await response.json();
+          setNote(data.note);
+        }
+      } catch (error) {
+        console.error('获取备注失败:', error);
+      }
+    };
+    fetchNote();
+  }, [symbol]);
+
+  // 更新备注
+  const updateNote = async (newNote: string) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/stock/note`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symbol,
+          note: newNote,
+        }),
+      });
+
+      if (response.ok) {
+        setNote(newNote);
+        message.success('备注已更新');
+      } else {
+        message.error('更新备注失败');
+      }
+    } catch (error) {
+      console.error('更新备注失败:', error);
+      message.error('更新备注失败');
+    }
+  };
+
+  // 处理备注编辑
+  const handleNoteEdit = () => {
+    setEditedNote(note);
+    setIsEditingNote(true);
+  };
+
+  // 处理备注保存
+  const handleNoteSave = () => {
+    updateNote(editedNote);
+    setIsEditingNote(false);
+  };
+
+  // 添加自动调整高度的函数
+  const autoAdjustHeight = (element: HTMLTextAreaElement) => {
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  };
+
   const getChartRange = () => {
     if (timeframe === "BACKTEST" && backTestRange && backTestRange[0] && backTestRange[1]) {
       const diffDays = backTestRange[1].diff(backTestRange[0], 'day');
@@ -79,7 +174,116 @@ const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange 
 
   return (
     <Card 
-      title={symbol} 
+      title={
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          position: 'relative',
+          justifyContent: 'center',
+          minHeight: '32px'
+        }}>
+          <span style={{ 
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            fontWeight: 500
+          }}>{symbol}</span>
+          <div style={{ position: 'absolute', right: 0 }}>
+            {isEditingNote ? (
+              <div 
+                ref={noteEditorRef}
+                style={{ 
+                  position: 'fixed',
+                  zIndex: 1000,
+                  background: 'white',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  width: '400px',
+                  maxWidth: '90vw',
+                  transition: 'all 0.3s ease',
+                  border: '1px solid #f0f0f0',
+                  ...(calculateEditorPosition() || {})
+                }}
+              >
+                <div style={{ 
+                  marginBottom: '12px', 
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span>编辑备注</span>
+                  <span style={{ 
+                    color: '#1890ff', 
+                    backgroundColor: '#e6f7ff', 
+                    padding: '2px 8px', 
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}>
+                    {symbol}
+                  </span>
+                </div>
+                <TextArea
+                  value={editedNote}
+                  onChange={(e) => {
+                    setEditedNote(e.target.value);
+                    // 自动调整高度
+                    const textarea = e.target as HTMLTextAreaElement;
+                    textarea.style.height = 'auto';
+                    textarea.style.height = `${textarea.scrollHeight}px`;
+                  }}
+                  placeholder="在此输入备注内容..."
+                  autoFocus
+                  autoSize={{ minRows: 3 }}
+                  style={{ 
+                    resize: 'none',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '4px',
+                    width: '100%',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    padding: '8px 12px',
+                    maxHeight: '60vh',
+                    overflowY: 'auto'
+                  }}
+                />
+                <div style={{ 
+                  marginTop: '12px',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '8px'
+                }}>
+                  <Button onClick={() => setIsEditingNote(false)}>
+                    取消
+                  </Button>
+                  <Button type="primary" onClick={handleNoteSave}>
+                    保存
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Tooltip title={note || '点击添加备注'} placement="topRight">
+                <div
+                  onClick={handleNoteEdit}
+                  style={{
+                    cursor: 'pointer',
+                    color: '#666',
+                    fontSize: '14px',
+                    maxWidth: 500,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'right'
+                  }}
+                >
+                  {note ? note.split('\n')[0].slice(0, 30) + (note.split('\n')[0].length > 30 ? '...' : '') : '+ 添加备注'}
+                </div>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+      }
       style={{ marginBottom: 16 }}
       bodyStyle={{ padding: '12px' }}
     >
@@ -99,7 +303,7 @@ const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange 
             />
           </div>
         </Col>
-        <Col span={8} style={{ maxHeight: 400, overflowY: 'auto' }}>
+        <Col span={8} ref={analysisColRef} style={{ maxHeight: 400, overflowY: 'auto' }}>
           <StockAnalysis symbol={symbol} />
         </Col>
       </Row>
