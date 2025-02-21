@@ -114,42 +114,41 @@ async def add_to_watchlist(stock: StockAdd, request: Request):
         logger.info(f"Parsed stock data: {stock}")
         logger.info(f"Adding stock {stock.symbol} to group {stock.group}")
         
-        # # 验证股票代码是否存在于本地数据库
-        # stock_data_path = Path(__file__).parent / 'data' / 'us_stocks.json'
-        # with open(stock_data_path, 'r') as f:
-        #     stock_database = json.load(f)
-            
-        # if stock.symbol not in stock_database:
-        #     logger.error(f"Stock {stock.symbol} not found in database")
-        #     raise HTTPException(status_code=400, detail="无效的股票代码")
+        # 每次添加股票前都重新加载最新的 watchlist 数据
+        current_watchlist = load_watchlist()
         
         # 确保分组存在
-        if stock.group not in STOCK_GROUPS:
+        if stock.group not in current_watchlist:
             logger.info(f"Creating new group {stock.group}")
-            STOCK_GROUPS[stock.group] = {
+            current_watchlist[stock.group] = {
                 "description": stock.group,
                 "stocks": [],
                 "subGroups": {}
             }
         
         # 检查股票是否已在分组中
-        if stock.symbol not in STOCK_GROUPS[stock.group]["stocks"]:
-            STOCK_GROUPS[stock.group]["stocks"].append(stock.symbol)
+        if stock.symbol not in current_watchlist[stock.group]["stocks"]:
+            current_watchlist[stock.group]["stocks"].append(stock.symbol)
             logger.info(f"Added {stock.symbol} to {stock.group}")
             
             # 保存更改
-            save_watchlist(STOCK_GROUPS)
+            save_watchlist(current_watchlist)
+            
+            # 更新全局变量
+            global STOCK_GROUPS
+            STOCK_GROUPS = current_watchlist
+            
             return {
                 "success": True,
                 "message": f"成功添加 {stock.symbol} 到 {stock.group}",
-                "groups": STOCK_GROUPS
+                "groups": current_watchlist
             }
         else:
             logger.info(f"Stock {stock.symbol} already in group {stock.group}")
             return {
                 "success": True,
                 "message": f"股票 {stock.symbol} 已在 {stock.group} 中",
-                "groups": STOCK_GROUPS
+                "groups": current_watchlist
             }
             
     except HTTPException:
@@ -174,6 +173,11 @@ class GroupMove(BaseModel):
 class GroupRename(BaseModel):
     old_path: str
     new_name: str
+
+class GroupReorder(BaseModel):
+    source_group: str
+    target_group: str
+    position: str  # 'before' or 'after'
 
 @app.on_event("startup")
 async def startup_event():
@@ -401,47 +405,47 @@ async def move_group(move: GroupMove):
     try:
         logger.info(f"Moving group {move.source_group} to {move.target_group}")
         
-        # 解析源路径和目标路径
-        source_parts = move.source_group.split('/')
-        target_parts = move.target_group.split('/')
+        # 加载当前的 watchlist
+        watchlist = load_watchlist()
         
-        # 查找源文件夹及其父文件夹
-        source_parent_groups = STOCK_GROUPS
-        source_current = STOCK_GROUPS
-        for i, part in enumerate(source_parts[:-1]):
-            if part not in source_current:
-                raise HTTPException(status_code=404, detail=f"源路径 {part} 不存在")
-            source_parent_groups = source_current
-            source_current = source_current[part].get('subGroups', {})
-        
-        if source_parts[-1] not in source_current:
-            raise HTTPException(status_code=404, detail=f"源文件夹 {source_parts[-1]} 不存在")
+        # 检查源分组是否存在
+        if move.source_group not in watchlist:
+            raise HTTPException(status_code=404, detail=f"源分组 {move.source_group} 不存在")
             
-        # 获取要移动的文件夹内容
-        moving_group = source_current.pop(source_parts[-1])
+        # 获取要移动的分组数据
+        moving_group = watchlist[move.source_group]
         
         # 如果目标路径为空，表示移动到顶层
         if not move.target_group:
-            # 直接添加到 STOCK_GROUPS
-            STOCK_GROUPS[source_parts[-1]] = moving_group
+            # 直接添加到顶层
+            watchlist[move.source_group] = moving_group
         else:
-            # 查找目标文件夹
-            target_current = STOCK_GROUPS
-            for i, part in enumerate(target_parts):
-                if part not in target_current:
-                    raise HTTPException(status_code=404, detail=f"目标路径 {part} 不存在")
-                if i == len(target_parts) - 1:
-                    # 确保目标文件夹有 subGroups
-                    if 'subGroups' not in target_current[part]:
-                        target_current[part]['subGroups'] = {}
-                    # 将文件夹移动到目标位置
-                    target_current[part]['subGroups'][source_parts[-1]] = moving_group
-                else:
-                    target_current = target_current[part].get('subGroups', {})
+            # 检查目标分组是否存在
+            if move.target_group not in watchlist:
+                raise HTTPException(status_code=404, detail=f"目标分组 {move.target_group} 不存在")
+                
+            # 确保目标分组有 subGroups 字段
+            if 'subGroups' not in watchlist[move.target_group]:
+                watchlist[move.target_group]['subGroups'] = {}
+                
+            # 将分组移动到目标位置
+            watchlist[move.target_group]['subGroups'][move.source_group] = moving_group
+            
+            # 从原位置删除
+            del watchlist[move.source_group]
         
         # 保存更改
-        save_watchlist(STOCK_GROUPS)
-        return {"status": "success", "message": f"已移动文件夹 {move.source_group}"}
+        save_watchlist(watchlist)
+        
+        # 更新全局变量
+        global STOCK_GROUPS
+        STOCK_GROUPS = watchlist
+        
+        return {
+            "status": "success",
+            "message": f"已移动分组 {move.source_group}",
+            "groups": watchlist
+        }
         
     except HTTPException:
         raise
@@ -531,4 +535,56 @@ async def rename_group(rename: GroupRename):
         raise
     except Exception as e:
         logger.error(f"Error renaming group: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/groups/reorder")
+async def reorder_groups(reorder: GroupReorder):
+    try:
+        logger.info(f"Reordering group {reorder.source_group} {reorder.position} {reorder.target_group}")
+        
+        # 加载当前的 watchlist
+        watchlist = load_watchlist()
+        
+        # 检查源分组和目标分组是否存在
+        if reorder.source_group not in watchlist:
+            raise HTTPException(status_code=404, detail=f"源分组 {reorder.source_group} 不存在")
+        if reorder.target_group not in watchlist:
+            raise HTTPException(status_code=404, detail=f"目标分组 {reorder.target_group} 不存在")
+            
+        # 获取所有分组的列表
+        groups = list(watchlist.keys())
+        
+        # 找到源分组和目标分组的位置
+        source_index = groups.index(reorder.source_group)
+        target_index = groups.index(reorder.target_group)
+        
+        # 从列表中移除源分组
+        groups.pop(source_index)
+        
+        # 根据位置重新插入源分组
+        new_index = target_index if reorder.position == 'before' else target_index + 1
+        groups.insert(new_index, reorder.source_group)
+        
+        # 创建新的有序字典
+        new_watchlist = {}
+        for group in groups:
+            new_watchlist[group] = watchlist[group]
+            
+        # 保存更改
+        save_watchlist(new_watchlist)
+        
+        # 更新全局变量
+        global STOCK_GROUPS
+        STOCK_GROUPS = new_watchlist
+        
+        return {
+            "status": "success",
+            "message": f"已重新排序分组 {reorder.source_group}",
+            "groups": new_watchlist
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reordering groups: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

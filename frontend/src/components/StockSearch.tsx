@@ -188,6 +188,26 @@ export const StockSearch: React.FC<StockSearchProps> = ({ onSelect, style }) => 
     try {
       console.log('开始添加股票:', symbol);
       
+      // 首先检查股票是否已经存在于任何分组中
+      const watchlistResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist`);
+      if (!watchlistResponse.ok) {
+        throw new Error('获取观察列表失败');
+      }
+      const watchlistData = await watchlistResponse.json();
+      
+      // 检查股票是否已存在于任何分组
+      let existingGroup = null;
+      Object.entries(watchlistData.groups).forEach(([groupName, group]: [string, any]) => {
+        if (group.stocks.includes(symbol)) {
+          existingGroup = groupName;
+        }
+      });
+      
+      if (existingGroup) {
+        message.warning(`股票 ${symbol} 已存在于分组 "${existingGroup}" 中`);
+        return;
+      }
+      
       const requestBody = {
         symbol: symbol,
         group: '默认分组'

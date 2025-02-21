@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import { Card, Descriptions, Tag, Space, Spin, Button, DatePicker, Modal, message, Tooltip } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, HistoryOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import type { RangePickerProps } from 'antd/es/date-picker';
+
+// 添加 dayjs 插件
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 interface AnalysisProps {
   symbol: string;
@@ -21,7 +27,7 @@ const SIGNAL_EXPLANATIONS: { [key: string]: string } = {
   "突破上轨": "股价突破布林带上轨，表示上涨趋势强劲，但也可能出现回调。",
   "突破下轨": "股价突破布林带下轨，表示下跌趋势明显，但也可能出现反弹。",
   "成交量突破": "当前成交量显著高于平均水平，表示市场活跃度增加。",
-  "量能减弱": "成交量低于平均水平，表示市场参与度下降。",
+  "量能减弱": "成交量低于平均水平，表示市场参与度下降。"
 };
 
 // 修改 Analysis 接口定义
@@ -154,7 +160,17 @@ const StockAnalysis: React.FC<AnalysisProps> = ({ symbol }) => {
   };
 
   const handleSignalClick = (signal: string) => {
-    setSelectedSignal(signal);
+    // 修改处理函数来匹配部分信号文本
+    let matchedSignal = signal;
+    if (signal.startsWith('RSI超买') || signal.startsWith('RSI超卖')) {
+      matchedSignal = signal.split(' (')[0];
+    }
+    setSelectedSignal(matchedSignal);
+  };
+
+  // 添加获取美国东部时间的函数
+  const getUsEasternTime = () => {
+    return dayjs().tz('America/New_York').format('YYYY-MM-DD HH:mm:ss');
   };
 
   if (loading) {
@@ -168,8 +184,13 @@ const StockAnalysis: React.FC<AnalysisProps> = ({ symbol }) => {
 
   return (
     <div style={{ height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h3>{symbol} 分析报告</h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <div style={{ textAlign: 'left' }}>
+          <h3 style={{ margin: 0, marginBottom: '4px', textAlign: 'left' }}>{symbol} 分析报告</h3>
+          <div style={{ color: '#666', fontSize: '12px', textAlign: 'left' }}>
+            截止至 {getUsEasternTime()} EST
+          </div>
+        </div>
         <Button 
           type="primary" 
           icon={<HistoryOutlined />} 
@@ -305,10 +326,15 @@ const StockAnalysis: React.FC<AnalysisProps> = ({ symbol }) => {
               <h4>技术信号</h4>
               <Space direction="vertical" style={{ width: '100%' }}>
                 {backTestResults.technical_signals.map((signal: string, index: number) => (
-                  <Tag key={index} color={
-                    signal?.includes('金叉') ? 'green' : 
-                    signal?.includes('死叉') ? 'red' : 'blue'
-                  } style={{ margin: '4px 0' }}>
+                  <Tag 
+                    key={index} 
+                    color={
+                      signal?.includes('金叉') || signal?.includes('超卖') ? 'green' : 
+                      signal?.includes('死叉') || signal?.includes('超买') ? 'red' : 'blue'
+                    } 
+                    style={{ margin: '4px 0', cursor: 'pointer' }}
+                    onClick={() => handleSignalClick(signal)}
+                  >
                     {signal}
                   </Tag>
                 ))}

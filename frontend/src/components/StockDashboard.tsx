@@ -45,20 +45,10 @@ interface WatchlistData {
 }
 
 const timeframeOptions = [
-  { label: '实时', options: [
-    { value: "1", label: '1分钟' },
-    { value: "5", label: '5分钟' },
-    { value: "15", label: '15分钟' },
-    { value: "30", label: '30分钟' },
-    { value: "60", label: '1小时' },
-  ]},
   { label: '历史', options: [
     { value: "D", label: '日线' },
     { value: "W", label: '周线' }
   ]},
-  { label: '回测', options: [
-    { value: "BACKTEST", label: '自定义' }
-  ]}
 ];
 
 const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange }) => {
@@ -231,34 +221,10 @@ const StockDashboard: React.FC = () => {
         throw new Error(errorData.error || '删除股票失败');
       }
 
-      // 删除成功后立即更新状态
-      setWatchlist(prevState => {
-        const newState = {
-          groups: { ...prevState.groups }
-        };
-        
-        // 从指定分组中删除股票
-        if (newState.groups[actualGroup]) {
-          newState.groups[actualGroup] = {
-            ...newState.groups[actualGroup],
-            stocks: newState.groups[actualGroup].stocks.filter(s => s !== symbol)
-          };
-        }
+      const data = await response.json();
 
-        // 如果是默认分组，还需要确保从其他分组中也删除该股票
-        if (actualGroup === "默认分组") {
-          Object.keys(newState.groups).forEach(group => {
-            if (group !== "默认分组") {
-              newState.groups[group] = {
-                ...newState.groups[group],
-                stocks: newState.groups[group].stocks.filter(s => s !== symbol)
-              };
-            }
-          });
-        }
-
-        return newState;
-      });
+      // 使用后端返回的数据更新状态
+      setWatchlist({ groups: data.groups });
 
       // 如果删除的是当前选中的股票，清除选中状态
       if (selectedStock === symbol) {
@@ -271,7 +237,7 @@ const StockDashboard: React.FC = () => {
       // 清除选中状态
       setSelectedKeys(prevKeys => prevKeys.filter(key => key !== `stock-${symbol}`));
 
-      message.success(`成功从 ${actualGroup} 删除 ${symbol}`);
+      message.success(data.message || `成功从 ${actualGroup} 删除 ${symbol}`);
     } catch (error) {
       console.error('删除股票失败:', error);
       message.error(error instanceof Error ? error.message : '删除股票失败');
@@ -287,50 +253,65 @@ const StockDashboard: React.FC = () => {
     
     // 处理文件夹的拖拽
     if (dragKey.startsWith('folder-')) {
-      const sourceFolder = dragKey.replace('folder-', '');
-      let targetFolder = '';
-      
-      // 根据放置位置决定目标位置
-      if (dropPosition === -1 || dropPosition === 1) {
-        // 放在目标的前面或后面，移动到同级
-        const targetParts = dropKey.replace(/^(folder|stock)-/, '').split('/');
-        targetParts.pop(); // 移除最后一个部分
-        targetFolder = targetParts.join('/');
-      } else {
-        // 放在目标内部
-        targetFolder = dropKey.replace(/^(folder|stock)-/, '');
-      }
-      
-      // 防止将文件夹移动到自己下面
-      if (targetFolder.startsWith(sourceFolder)) {
-        message.error('不能将文件夹移动到其子文件夹中');
-        return;
-      }
-      
-      try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/groups/move`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            source_group: sourceFolder,
-            target_group: targetFolder,
-          }),
-        });
+        const sourceFolder = dragKey.replace('folder-', '');
+        const targetFolder = dropKey.replace(/^(folder|stock)-/, '');
+        
+        // 如果是重新排序（放在另一个文件夹的前面或后面）
+        if (dropPosition === -1 || dropPosition === 1) {
+            try {
+                const response = await fetch(`${process.env.REACT_APP_API_URL}/api/groups/reorder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        source_group: sourceFolder,
+                        target_group: targetFolder,
+                        position: dropPosition === -1 ? 'before' : 'after'
+                    }),
+                });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || '移动文件夹失败');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '重新排序失败');
+                }
+
+                const data = await response.json();
+                setWatchlist({ groups: data.groups });
+                message.success('重新排序成功');
+            } catch (error) {
+                console.error('重新排序失败:', error);
+                message.error(error instanceof Error ? error.message : '重新排序失败');
+            }
+            return;
         }
         
-        await fetchWatchlist();
-        message.success('移动成功');
-      } catch (error) {
-        console.error('移动文件夹失败:', error);
-        message.error(error instanceof Error ? error.message : '移动文件夹失败');
-      }
-      return;
+        // 如果是移动到另一个文件夹内部
+        try {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/groups/move`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    source_group: sourceFolder,
+                    target_group: dropPosition === 0 ? targetFolder : ''
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || '移动文件夹失败');
+            }
+
+            const data = await response.json();
+            setWatchlist({ groups: data.groups });
+            message.success('移动成功');
+        } catch (error) {
+            console.error('移动文件夹失败:', error);
+            message.error(error instanceof Error ? error.message : '移动文件夹失败');
+        }
+        return;
     }
     
     // 处理股票的拖拽
