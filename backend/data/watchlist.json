@@ -10,7 +10,8 @@
       "RZLV",
       "XIACY",
       "BABA",
-      "HIMS"
+      "HIMS",
+      "ABNB"
     ],
     "subGroups": {}
   },
@@ -21,7 +22,8 @@
       "IBM",
       "AAPL",
       "GOOGL",
-      "AVGO"
+      "AVGO",
+      "TSLA"
     ],
     "subGroups": {}
   },
@@ -29,7 +31,6 @@
     "description": null,
     "stocks": [
       "LULU",
-      "ABNB",
       "KO",
       "WMT"
     ]

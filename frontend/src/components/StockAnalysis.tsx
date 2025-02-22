@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Descriptions, Tag, Space, Spin, Button, DatePicker, Modal, message, Tooltip } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined, HistoryOutlined } from '@ant-design/icons';
+import { ArrowUpOutlined, ArrowDownOutlined, HistoryOutlined, StockOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -191,13 +191,33 @@ const StockAnalysis: React.FC<AnalysisProps> = ({ symbol }) => {
             截止至 {getUsEasternTime()} EST
           </div>
         </div>
-        <Button 
-          type="primary" 
-          icon={<HistoryOutlined />} 
-          onClick={() => setIsBackTestModalVisible(true)}
-        >
-          回测分析
-        </Button>
+        <Space>
+          <Button 
+            type="link" 
+            icon={<StockOutlined />}
+            href={`https://www.bing.com/search?q=${symbol}+stock+site:msn.com/en-us/money/stockdetails`}
+            target="_blank"
+            style={{ padding: '4px 8px' }}
+          >
+            MSN
+          </Button>
+          <Button 
+            type="link" 
+            icon={<StockOutlined />}
+            href={`https://finance.yahoo.com/quote/${symbol}`}
+            target="_blank"
+            style={{ padding: '4px 8px' }}
+          >
+            Yahoo
+          </Button>
+          <Button 
+            type="primary" 
+            icon={<HistoryOutlined />} 
+            onClick={() => setIsBackTestModalVisible(true)}
+          >
+            回测分析
+          </Button>
+        </Space>
       </div>
       <Descriptions column={1} size="small">
         <Descriptions.Item label="当前价格">
