@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 import pytz
 import requests
+from time import sleep
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class StockAnalyzer:
     def get_stock_data(self, ticker, period='1y', start=None, end=None):
         """使用Yahoo Finance API获取股票数据（支持时间范围或时间段）"""
         try:
+            sleep(1)
             # 优先使用明确的时间范围参数
             use_date_range = start is not None or end is not None
             

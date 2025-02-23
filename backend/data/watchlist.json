@@ -10,8 +10,8 @@
       "RZLV",
       "XIACY",
       "BABA",
-      "HIMS",
-      "ABNB"
+      "ABNB",
+      "HIMS"
     ],
     "subGroups": {}
   },
@@ -23,7 +23,9 @@
       "AAPL",
       "GOOGL",
       "AVGO",
-      "TSLA"
+      "TSLA",
+      "META",
+      "MSFT"
     ],
     "subGroups": {}
   },
