@@ -1,9 +1,7 @@
 {
   "默认分组": {
     "description": "默认分组",
-    "stocks": [
-      "BYDDY"
-    ],
+    "stocks": [],
     "subGroups": {}
   },
   "观察": {
@@ -18,7 +16,8 @@
           "BABA",
           "JD",
           "MPNGY",
-          "TCEHY"
+          "TCEHY",
+          "BYDDY"
         ]
       },
       "美股": {

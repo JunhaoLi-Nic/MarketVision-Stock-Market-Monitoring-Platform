@@ -405,30 +405,67 @@ async def move_stock(move: StockMove):
         # 加载当前的 watchlist
         watchlist = load_watchlist()
         
-        # 检查源分组是否存在
-        if move.from_group not in watchlist:
-            raise HTTPException(status_code=404, detail=f"源分组 {move.from_group} 不存在")
+        # 处理源分组路径
+        from_parts = move.from_group.split('/')
+        current_from = watchlist
+        
+        # 遍历源分组路径
+        for i, part in enumerate(from_parts[:-1]):
+            if part not in current_from:
+                raise HTTPException(status_code=404, detail=f"源分组 {part} 不存在")
+            if "subGroups" not in current_from[part]:
+                raise HTTPException(status_code=404, detail=f"源分组 {part} 没有子分组")
+            current_from = current_from[part]["subGroups"]
             
-        # 检查目标分组是否存在
-        if move.to_group not in watchlist:
-            raise HTTPException(status_code=404, detail=f"目标分组 {move.to_group} 不存在")
+        # 检查最后一个源分组
+        last_from = from_parts[-1]
+        if last_from not in current_from:
+            raise HTTPException(status_code=404, detail=f"源分组 {last_from} 不存在")
             
         # 检查股票是否在源分组中
-        if move.symbol not in watchlist[move.from_group]["stocks"]:
-            raise HTTPException(status_code=404, detail=f"股票 {move.symbol} 不在分组 {move.from_group} 中")
+        if move.symbol not in current_from[last_from]["stocks"]:
+            raise HTTPException(status_code=404, detail=f"股票 {move.symbol} 不在分组 {last_from} 中")
+            
+        # 处理目标分组路径
+        to_parts = move.to_group.split('/')
+        current_to = watchlist
+        
+        # 遍历目标分组路径
+        for i, part in enumerate(to_parts[:-1]):
+            if part not in current_to:
+                raise HTTPException(status_code=404, detail=f"目标分组 {part} 不存在")
+            if "subGroups" not in current_to[part]:
+                current_to[part]["subGroups"] = {}
+            current_to = current_to[part]["subGroups"]
+            
+        # 检查最后一个目标分组
+        last_to = to_parts[-1]
+        if last_to not in current_to:
+            raise HTTPException(status_code=404, detail=f"目标分组 {last_to} 不存在")
+            
+        # 确保目标分组有 stocks 数组
+        if "stocks" not in current_to[last_to]:
+            current_to[last_to]["stocks"] = []
             
         # 从源分组中移除股票
-        watchlist[move.from_group]["stocks"].remove(move.symbol)
+        current_from[last_from]["stocks"].remove(move.symbol)
         
         # 添加到目标分组
-        if move.symbol not in watchlist[move.to_group]["stocks"]:
-            watchlist[move.to_group]["stocks"].append(move.symbol)
+        if move.symbol not in current_to[last_to]["stocks"]:
+            current_to[last_to]["stocks"].append(move.symbol)
+            
+        # 如果源分组为空且不是默认分组，则删除该分组
+        if (last_from != "默认分组" and 
+            len(current_from[last_from]["stocks"]) == 0 and 
+            (not current_from[last_from].get("subGroups") or 
+             len(current_from[last_from]["subGroups"]) == 0)):
+            del current_from[last_from]
             
         # 保存更改
         save_watchlist(watchlist)
         
         return {
-            "status": "success",
+            "success": True,
             "message": f"已将 {move.symbol} 从 {move.from_group} 移动到 {move.to_group}",
             "groups": watchlist
         }
