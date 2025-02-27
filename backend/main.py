@@ -673,38 +673,48 @@ async def reorder_stocks(reorder: StockReorder):
         # 加载当前的 watchlist
         watchlist = load_watchlist()
         
-        # 检查分组是否存在
-        if reorder.group not in watchlist:
-            raise HTTPException(status_code=404, detail=f"分组 {reorder.group} 不存在")
+        # 处理嵌套分组路径
+        group_parts = reorder.group.split('/')
+        current_group = watchlist
+        
+        # 遍历分组路径
+        for i, part in enumerate(group_parts[:-1]):  # 除了最后一个部分
+            if part not in current_group:
+                raise HTTPException(status_code=404, detail=f"分组 {part} 不存在")
+            current_group = current_group[part]["subGroups"]
             
-        # 获取分组中的股票列表
-        stocks = watchlist[reorder.group]["stocks"]
+        # 检查最后一个分组
+        last_part = group_parts[-1]
+        if last_part not in current_group:
+            raise HTTPException(status_code=404, detail=f"分组 {last_part} 不存在")
+            
+        group_data = current_group[last_part]
         
         # 检查源股票和目标股票是否存在
-        if reorder.source_symbol not in stocks:
+        if reorder.source_symbol not in group_data["stocks"]:
             raise HTTPException(status_code=404, detail=f"股票 {reorder.source_symbol} 不在分组中")
-        if reorder.target_symbol not in stocks:
-            raise HTTPException(status_code=404, detail=f"股票 {reorder.target_symbol} 不在分组中")
+        if reorder.target_symbol not in group_data["stocks"]:
+            raise HTTPException(status_code=404, detail=f"目标股票 {reorder.target_symbol} 不在分组中")
             
-        # 从列表中移除源股票
+        # 获取股票列表
+        stocks = group_data["stocks"]
+        
+        # 移除源股票
         stocks.remove(reorder.source_symbol)
         
-        # 找到目标股票的位置
+        # 获取目标位置
         target_index = stocks.index(reorder.target_symbol)
         
         # 根据位置重新插入源股票
-        new_index = target_index if reorder.position == 'before' else target_index + 1
-        stocks.insert(new_index, reorder.source_symbol)
+        if reorder.position == 'after':
+            target_index += 1
+        stocks.insert(target_index, reorder.source_symbol)
         
         # 保存更改
         save_watchlist(watchlist)
         
-        # 更新全局变量
-        global STOCK_GROUPS
-        STOCK_GROUPS = watchlist
-        
         return {
-            "status": "success",
+            "success": True,
             "message": f"已重新排序股票 {reorder.source_symbol}",
             "groups": watchlist
         }

@@ -549,13 +549,31 @@ const StockDashboard: React.FC = () => {
         // 如果在同一个分组内，执行重新排序
         if (fromGroup === toGroup) {
           try {
+            // 构建完整的分组路径
+            let fullGroupPath = '';
+            for (const [groupName, group] of Object.entries(watchlist.groups)) {
+              if (group.stocks.includes(targetSymbol)) {
+                fullGroupPath = groupName;
+                break;
+              }
+              if (group.subGroups) {
+                for (const [subGroupName, subGroup] of Object.entries(group.subGroups)) {
+                  if (subGroup.stocks.includes(targetSymbol)) {
+                    fullGroupPath = `${groupName}/${subGroupName}`;
+                    break;
+                  }
+                }
+                if (fullGroupPath) break;
+              }
+            }
+
             const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist/reorder`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                group: fromGroup,
+                group: fullGroupPath,
                 source_symbol: symbol,
                 target_symbol: targetSymbol,
                 position: dropPosition === -1 ? 'before' : 'after'
