@@ -156,4 +156,55 @@ def search_stock(query):
         
     except Exception as e:
         print(f"Search error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@stock_bp.route('/delete', methods=['DELETE'])
+@cross_origin(supports_credentials=True)
+def delete_stock():
+    try:
+        group = request.args.get('group')
+        symbol = request.args.get('symbol')
+        
+        if not group or not symbol:
+            return jsonify({"error": "分组和股票代码不能为空"}), 400
+            
+        # 加载当前的观察列表
+        watchlist = load_watchlist()
+        
+        # 处理嵌套分组路径
+        group_parts = group.split('/')
+        current_group = watchlist
+        
+        # 遍历分组路径
+        for i, part in enumerate(group_parts):
+            if part not in current_group:
+                return jsonify({"error": f"分组 {part} 不存在"}), 404
+                
+            if i == len(group_parts) - 1:  # 最后一个分组
+                if symbol not in current_group[part]["stocks"]:
+                    return jsonify({"error": f"股票 {symbol} 不在分组 {part} 中"}), 404
+                    
+                # 从分组中移除股票
+                current_group[part]["stocks"].remove(symbol)
+                
+                # 如果分组为空且不是默认分组，则删除该分组
+                if (part != "默认分组" and 
+                    len(current_group[part]["stocks"]) == 0 and 
+                    (not current_group[part].get("subGroups") or len(current_group[part]["subGroups"]) == 0)):
+                    del current_group[part]
+            else:
+                current_group = current_group[part]["subGroups"]
+        
+        # 保存更改
+        if save_watchlist(watchlist):
+            return jsonify({
+                "success": True,
+                "message": f"已从 {group} 中删除 {symbol}",
+                "groups": watchlist
+            })
+        else:
+            return jsonify({"error": "保存观察列表失败"}), 500
+            
+    except Exception as e:
+        print(f"删除股票失败: {str(e)}")
         return jsonify({"error": str(e)}), 500 

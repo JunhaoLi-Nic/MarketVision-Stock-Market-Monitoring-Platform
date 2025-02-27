@@ -1,19 +1,35 @@
 {
   "默认分组": {
     "description": "默认分组",
-    "stocks": [],
+    "stocks": [
+      "BYDDY"
+    ],
     "subGroups": {}
   },
   "观察": {
     "description": null,
-    "stocks": [
-      "RZLV",
-      "XIACY",
-      "BABA",
-      "ABNB",
-      "HIMS"
-    ],
-    "subGroups": {}
+    "stocks": [],
+    "subGroups": {
+      "中股": {
+        "description": null,
+        "stocks": [
+          "XIACY",
+          "PDD",
+          "BABA",
+          "JD",
+          "MPNGY",
+          "TCEHY"
+        ]
+      },
+      "美股": {
+        "description": null,
+        "stocks": [
+          "UBER",
+          "ABNB",
+          "RZLV"
+        ]
+      }
+    }
   },
   "科技股": {
     "description": null,
@@ -25,7 +41,8 @@
       "AVGO",
       "TSLA",
       "META",
-      "MSFT"
+      "MSFT",
+      "AMZN"
     ],
     "subGroups": {}
   },

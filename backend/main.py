@@ -136,7 +136,7 @@ async def add_to_watchlist(stock: StockAdd, request: Request):
             
             # 更新全局变量
             global STOCK_GROUPS
-            STOCK_GROUPS = current_watchlist
+            STOCK_GROUPS = current_watchlist.copy()  # 使用 copy 来避免引用问题
             
             return {
                 "success": True,
@@ -209,6 +209,10 @@ async def root():
 async def get_watchlist():
     logger.info("Fetching watchlist")
     try:
+        # 每次获取 watchlist 时都重新从文件加载
+        current_watchlist = load_watchlist()
+        global STOCK_GROUPS
+        STOCK_GROUPS = current_watchlist.copy()  # 更新全局变量
         return {"groups": STOCK_GROUPS}
     except Exception as e:
         logger.error(f"Error in get_watchlist: {str(e)}")
@@ -231,28 +235,52 @@ async def get_watchlist():
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/watchlist/{group}/{symbol}")
+@app.delete("/api/watchlist/{group:path}/{symbol}")
 async def remove_stock(group: str, symbol: str):
     try:
+        logger.info(f"Received group: {group}, symbol: {symbol}")
+        
         # 加载当前的 watchlist
         watchlist = load_watchlist()
         
-        # 检查分组是否存在
-        if group not in watchlist:
-            raise HTTPException(status_code=404, detail=f"分组 {group} 不存在")
-            
-        # 检查股票是否在该分组中
-        if symbol not in watchlist[group]["stocks"]:
-            raise HTTPException(status_code=404, detail=f"股票 {symbol} 不在分组 {group} 中")
-            
-        # 从分组中移除股票
-        watchlist[group]["stocks"].remove(symbol)
+        # 处理嵌套分组路径
+        group_parts = group.split('/')
+        current_group = watchlist
+        
+        # 遍历分组路径
+        for i, part in enumerate(group_parts[:-1]):  # 除了最后一个部分
+            if part not in current_group:
+                raise HTTPException(status_code=404, detail=f"分组 {part} 不存在")
+            if "subGroups" not in current_group[part]:
+                current_group[part]["subGroups"] = {}
+            current_group = current_group[part]["subGroups"]
+        
+        # 处理最后一个分组
+        last_part = group_parts[-1]
+        if last_part not in current_group:
+            raise HTTPException(status_code=404, detail=f"分组 {last_part} 不存在")
+        
+        if "stocks" not in current_group[last_part]:
+            current_group[last_part]["stocks"] = []
+        
+        if symbol not in current_group[last_part]["stocks"]:
+            raise HTTPException(status_code=404, detail=f"股票 {symbol} 不在分组 {last_part} 中")
+        
+        # 从分组中删除股票
+        current_group[last_part]["stocks"].remove(symbol)
+        
+        # 如果分组为空且不是默认分组，则删除该分组
+        if (last_part != "默认分组" and 
+            len(current_group[last_part]["stocks"]) == 0 and 
+            (not current_group[last_part].get("subGroups") or 
+             len(current_group[last_part]["subGroups"]) == 0)):
+            del current_group[last_part]
         
         # 保存更改
         save_watchlist(watchlist)
         
         return {
-            "status": "success",
+            "success": True,
             "message": f"已从 {group} 中删除 {symbol}",
             "groups": watchlist
         }

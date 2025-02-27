@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Select, Spin, message, Layout, Menu, Input, Button, Modal, Form, Dropdown, Space, notification, Badge, AutoComplete, DatePicker, Tree, Tooltip } from 'antd';
-import { PlusOutlined, DeleteOutlined, FolderOutlined, MoreOutlined, AlertOutlined, StockOutlined, ExpandOutlined, CompressOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, FolderOutlined, MoreOutlined, AlertOutlined, StockOutlined, ExpandOutlined, CompressOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets';
 import type { CardProps } from 'antd';
 import StockAnalysis from './StockAnalysis';
@@ -371,20 +371,48 @@ const StockDashboard: React.FC = () => {
   // 获取所有唯一的股票
   const getAllStocks = () => {
     const allStocks = new Set<string>();
-    Object.values(watchlist.groups).forEach(group => {
+    
+    const addStocksFromGroup = (group: StockGroup) => {
+      // 添加当前分组的股票
       group.stocks.forEach(stock => allStocks.add(stock));
+      
+      // 递归处理子分组
+      if (group.subGroups) {
+        Object.values(group.subGroups).forEach(subGroup => {
+          addStocksFromGroup(subGroup);
+        });
+      }
+    };
+    
+    Object.values(watchlist.groups).forEach(group => {
+      addStocksFromGroup(group);
     });
+    
     return Array.from(allStocks);
   };
 
   // 获取已分组的股票
   const getGroupedStocks = () => {
     const groupedStocks = new Set<string>();
+    
+    const addStocksFromGroup = (group: StockGroup) => {
+      // 添加当前分组的股票
+      group.stocks.forEach(stock => groupedStocks.add(stock));
+      
+      // 递归处理子分组
+      if (group.subGroups) {
+        Object.values(group.subGroups).forEach(subGroup => {
+          addStocksFromGroup(subGroup);
+        });
+      }
+    };
+    
     Object.entries(watchlist.groups).forEach(([groupName, group]) => {
       if (groupName !== "默认分组") {
-        group.stocks.forEach(stock => groupedStocks.add(stock));
+        addStocksFromGroup(group);
       }
     });
+    
     return groupedStocks;
   };
 
@@ -398,50 +426,20 @@ const StockDashboard: React.FC = () => {
   // 修改 handleDeleteStock 函数
   const handleDeleteStock = async (groupName: string, symbol: string) => {
     try {
-      // 首先找到股票实际所在的分组
-      let actualGroup = groupName;
-      if (groupName === '默认分组') {
-        // 查找股票实际所在的分组
-        for (const [name, group] of Object.entries(watchlist.groups)) {
-          if (group.stocks.includes(symbol)) {
-            actualGroup = name;
-            break;
-          }
-        }
-      }
-
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/watchlist/${encodeURIComponent(actualGroup)}/${encodeURIComponent(symbol)}`,
+        `${process.env.REACT_APP_API_URL}/api/watchlist/${encodeURIComponent(groupName)}/${encodeURIComponent(symbol)}`,
         {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          }
         }
       );
-
+  
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || '删除股票失败');
+        throw new Error(errorData.detail || '删除股票失败');
       }
-
-      const data = await response.json();
-
-      // 使用后端返回的数据更新状态
-      setWatchlist({ groups: data.groups });
-
-      // 如果删除的是当前选中的股票，清除选中状态
-      if (selectedStock === symbol) {
-        setSelectedStock(null);
-      }
-
-      // 从 stockRefs 中移除引用
-      delete stockRefs.current[symbol];
-
-      // 清除选中状态
-      setSelectedKeys(prevKeys => prevKeys.filter(key => key !== `stock-${symbol}`));
-
-      message.success(data.message || `成功从 ${actualGroup} 删除 ${symbol}`);
+  
+      await fetchWatchlist();
+      message.success('删除成功');
     } catch (error) {
       console.error('删除股票失败:', error);
       message.error(error instanceof Error ? error.message : '删除股票失败');
@@ -874,14 +872,14 @@ const StockDashboard: React.FC = () => {
       ),
       key: `folder-${groupPath}`,
       children: [...stockNodes, ...subGroupNodes],
-      selectable: false  // 添加这个属性，使文件夹不可选择
+      selectable: false
     };
   };
 
   // 修改 treeData 的生成
   const treeData: DataNode[] = [
     // 未分组的股票
-    ...getUngroupedStocks().map((stock: string) => ({
+    ...getUngroupedStocks().map((stock: string): DataNode => ({
       title: (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -951,6 +949,22 @@ const StockDashboard: React.FC = () => {
     }
   };
 
+  // 添加刷新目录的函数
+  const handleRefreshDirectory = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist`);
+      if (!response.ok) {
+        throw new Error('获取观察列表失败');
+      }
+      const data = await response.json();
+      setWatchlist({ groups: data.groups || {} });
+      message.success('目录刷新成功');
+    } catch (error) {
+      console.error('刷新目录失败:', error);
+      message.error('刷新目录失败');
+    }
+  };
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider width={300} theme="light" style={{ padding: '16px' }}>
@@ -972,6 +986,12 @@ const StockDashboard: React.FC = () => {
             >
               新建文件夹
             </Button>
+            <Tooltip title="刷新目录" placement="bottom">
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={handleRefreshDirectory}
+              />
+            </Tooltip>
             <Tooltip 
               title={expandedKeys.length === 0 ? "展开所有文件夹" : "折叠所有文件夹"}
               placement="bottom"
@@ -1044,7 +1064,7 @@ const StockDashboard: React.FC = () => {
           />
         </div>
         
-        {/* 修改未分组股票的渲染 */}
+        {/* 渲染未分组股票 */}
         {getUngroupedStocks().length > 0 && (
           <div>
             <h2 style={{ margin: '16px 0' }}>未分组股票</h2>
@@ -1066,29 +1086,47 @@ const StockDashboard: React.FC = () => {
           </div>
         )}
         
-        {/* 修改分组股票的渲染 */}
+        {/* 渲染分组和子分组的股票 */}
         {Object.entries(watchlist.groups)
           .filter(([groupName]) => groupName !== "默认分组")
-          .map(([groupName, group]) => (
-            <div key={groupName}>
-              <h2 style={{ margin: '16px 0' }}>{groupName}</h2>
-              {group.stocks.map(symbol => (
-                <div 
-                  key={symbol}
-                  ref={(el: HTMLDivElement | null) => {
-                    stockRefs.current[symbol] = el;
-                    return undefined;
-                  }}
-                  id={`stock-${symbol}`}
-                >
-                  <StockCard
-                    symbol={symbol}
-                    timeframe={timeframe}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
+          .map(([groupName, group]) => {
+            const renderStockGroup = (stocks: string[], indent: number = 0) => (
+              <>
+                {stocks.map(symbol => (
+                  <div 
+                    key={symbol}
+                    ref={(el: HTMLDivElement | null) => {
+                      stockRefs.current[symbol] = el;
+                      return undefined;
+                    }}
+                    id={`stock-${symbol}`}
+                    style={{ marginLeft: `${indent}px` }}
+                  >
+                    <StockCard
+                      symbol={symbol}
+                      timeframe={timeframe}
+                    />
+                  </div>
+                ))}
+              </>
+            );
+
+            return (
+              <div key={groupName}>
+                <h2 style={{ margin: '16px 0' }}>{groupName}</h2>
+                {/* 渲染当前分组的股票 */}
+                {renderStockGroup(group.stocks)}
+                
+                {/* 渲染子分组的股票 */}
+                {group.subGroups && Object.entries(group.subGroups).map(([subGroupName, subGroup]) => (
+                  <div key={`${groupName}-${subGroupName}`}>
+                    <h3 style={{ margin: '16px 0', paddingLeft: '20px' }}>{subGroupName}</h3>
+                    {renderStockGroup(subGroup.stocks, 20)}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
       </Content>
     </Layout>
   );
