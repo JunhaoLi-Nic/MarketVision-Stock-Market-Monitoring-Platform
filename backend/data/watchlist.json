@@ -12,12 +12,7 @@
         "description": null,
         "stocks": [
           "XIACY",
-          "PDD",
           "BABA",
-          "JD",
-          "BYDDY",
-          "MPNGY",
-          "TCEHY"
         ]
       },
       "美股": {
@@ -25,7 +20,6 @@
         "stocks": [
           "UBER",
           "ABNB",
-          "RZLV"
         ]
       }
     }
