@@ -43,24 +43,46 @@ router.post('/add', async (req, res) => {
 });
 
 // 删除股票
-router.post('/remove', async (req, res) => {
+router.delete('/:group/:symbol', async (req: express.Request, res: express.Response) => {
   try {
-    const { symbol, group = '默认分组' } = req.body;
+    const { group, symbol } = req.params;
     const watchlist = await readWatchlist();
 
-    if (watchlist[group]) {
-      watchlist[group].stocks = watchlist[group].stocks.filter((s: string) => s !== symbol);
-      
-      // 如果分组为空且不是默认分组，则删除该分组
-      if (watchlist[group].stocks.length === 0 && 
-          Object.keys(watchlist[group].subGroups).length === 0 && 
-          group !== '默认分组') {
-        delete watchlist[group];
+    // 如果是从默认分组删除，需要从所有分组中删除该股票
+    if (group === '默认分组') {
+      Object.keys(watchlist).forEach(groupName => {
+        if (watchlist[groupName].stocks) {
+          watchlist[groupName].stocks = watchlist[groupName].stocks.filter((s: string) => s !== symbol);
+        }
+      });
+    } else {
+      // 从指定分组中删除
+      if (!watchlist[group]) {
+        return res.status(404).json({ error: `分组 ${group} 不存在` });
       }
+
+      if (!watchlist[group].stocks.includes(symbol)) {
+        return res.status(404).json({ error: `股票 ${symbol} 不在分组 ${group} 中` });
+      }
+
+      watchlist[group].stocks = watchlist[group].stocks.filter((s: string) => s !== symbol);
     }
 
+    // 如果分组为空且不是默认分组，则删除该分组
+    Object.keys(watchlist).forEach(groupName => {
+      if (groupName !== '默认分组' && 
+          watchlist[groupName].stocks.length === 0 && 
+          (!watchlist[groupName].subGroups || Object.keys(watchlist[groupName].subGroups).length === 0)) {
+        delete watchlist[groupName];
+      }
+    });
+
     await writeWatchlist(watchlist);
-    res.json({ success: true });
+    res.json({ 
+      success: true,
+      message: `已从 ${group} 中删除 ${symbol}`,
+      groups: watchlist
+    });
   } catch (error) {
     console.error('删除股票失败:', error);
     res.status(500).json({ error: '删除股票失败' });

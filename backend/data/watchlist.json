@@ -1,31 +1,56 @@
 {
   "默认分组": {
     "description": "默认分组",
-    "stocks": [
-      "ABNB"
-    ],
+    "stocks": [],
     "subGroups": {}
+  },
+  "观察": {
+    "description": null,
+    "stocks": [],
+    "subGroups": {
+      "中股": {
+        "description": null,
+        "stocks": [
+          "XIACY",
+          "PDD",
+          "BABA",
+          "JD",
+          "BYDDY",
+          "MPNGY",
+          "TCEHY"
+        ]
+      },
+      "美股": {
+        "description": null,
+        "stocks": [
+          "UBER",
+          "ABNB",
+          "RZLV"
+        ]
+      }
+    }
   },
   "科技股": {
     "description": null,
     "stocks": [
       "NVDA",
+      "IBM",
+      "AAPL",
+      "GOOGL",
+      "AVGO",
       "TSLA",
-      "GOOGL"
-    ]
+      "META",
+      "MSFT",
+      "AMZN"
+    ],
+    "subGroups": {}
   },
   "消费": {
     "description": null,
     "stocks": [
-      "LULU"
+      "LULU",
+      "KO",
+      "WMT"
     ]
-  },
-  "观察": {
-    "description": null,
-    "stocks": [
-      "ABNB",
-      "HIMS"
-    ],
-    "subGroups": {}
   }
 }

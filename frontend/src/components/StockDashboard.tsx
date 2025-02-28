@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Select, Spin, message, Layout, Menu, Input, Button, Modal, Form, Dropdown, Space, notification, Badge, AutoComplete, DatePicker, Tree, Tooltip } from 'antd';
-import { PlusOutlined, DeleteOutlined, FolderOutlined, MoreOutlined, AlertOutlined, StockOutlined, ExpandOutlined, CompressOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, FolderOutlined, MoreOutlined, AlertOutlined, StockOutlined, ExpandOutlined, CompressOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets';
 import type { CardProps } from 'antd';
 import StockAnalysis from './StockAnalysis';
@@ -8,11 +8,11 @@ import dayjs from 'dayjs';
 import type { RangePickerProps } from 'antd/es/date-picker';
 import type { DataNode, TreeProps, EventDataNode } from 'antd/es/tree';
 import type { Key } from 'rc-tree/lib/interface';
-import { StockSearch } from './StockSearch';
 import type { MenuProps } from 'antd';
+import { StockSearch } from './StockSearch';
 
 const { Sider, Content } = Layout;
-const { Search } = Input;
+const { Search, TextArea } = Input;
 
 interface StockCardProps {
   symbol: string;
@@ -37,12 +37,6 @@ interface AlertData {
   threshold: number;
 }
 
-// 添加搜索选项的接口定义
-interface SearchOption {
-  value: string;
-  label: React.ReactNode;  // 改为 ReactNode 类型以支持 JSX
-}
-
 // 添加 WatchlistData 接口
 interface WatchlistData {
   groups: {
@@ -51,23 +45,108 @@ interface WatchlistData {
 }
 
 const timeframeOptions = [
-  { label: '实时', options: [
-    { value: "1", label: '1分钟' },
-    { value: "5", label: '5分钟' },
-    { value: "15", label: '15分钟' },
-    { value: "30", label: '30分钟' },
-    { value: "60", label: '1小时' },
-  ]},
   { label: '历史', options: [
     { value: "D", label: '日线' },
     { value: "W", label: '周线' }
   ]},
-  { label: '回测', options: [
-    { value: "BACKTEST", label: '自定义' }
-  ]}
 ];
 
 const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange }) => {
+  const [note, setNote] = useState<string>("");
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [editedNote, setEditedNote] = useState<string>("");
+  const noteEditorRef = React.useRef<HTMLDivElement>(null);
+  const analysisColRef = React.useRef<HTMLDivElement>(null);
+
+  // 计算编辑窗口位置的函数
+  const calculateEditorPosition = () => {
+    if (analysisColRef.current) {
+      const rect = analysisColRef.current.getBoundingClientRect();
+      return {
+        top: rect.top - 210, // 在分析报告上方20px
+        left: rect.left,
+      };
+    }
+    return null;
+  };
+
+  // 修改点击外部处理函数
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (noteEditorRef.current && !noteEditorRef.current.contains(event.target as Node)) {
+        setIsEditingNote(true);  
+      }
+    };
+
+    if (isEditingNote) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isEditingNote]);
+
+  // 获取备注
+  useEffect(() => {
+    const fetchNote = async () => {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/stock/note/${symbol}`);
+        if (response.ok) {
+          const data = await response.json();
+          setNote(data.note);
+        }
+      } catch (error) {
+        console.error('获取备注失败:', error);
+      }
+    };
+    fetchNote();
+  }, [symbol]);
+
+  // 更新备注
+  const updateNote = async (newNote: string) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/stock/note`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symbol,
+          note: newNote,
+        }),
+      });
+
+      if (response.ok) {
+        setNote(newNote);
+        message.success('备注已更新');
+      } else {
+        message.error('更新备注失败');
+      }
+    } catch (error) {
+      console.error('更新备注失败:', error);
+      message.error('更新备注失败');
+    }
+  };
+
+  // 处理备注编辑
+  const handleNoteEdit = () => {
+    setEditedNote(note);
+    setIsEditingNote(true);
+  };
+
+  // 处理备注保存
+  const handleNoteSave = () => {
+    updateNote(editedNote);
+    setIsEditingNote(false);
+  };
+
+  // 添加自动调整高度的函数
+  const autoAdjustHeight = (element: HTMLTextAreaElement) => {
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  };
+
   const getChartRange = () => {
     if (timeframe === "BACKTEST" && backTestRange && backTestRange[0] && backTestRange[1]) {
       const diffDays = backTestRange[1].diff(backTestRange[0], 'day');
@@ -95,7 +174,116 @@ const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange 
 
   return (
     <Card 
-      title={symbol} 
+      title={
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          position: 'relative',
+          justifyContent: 'center',
+          minHeight: '32px'
+        }}>
+          <span style={{ 
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            fontWeight: 500
+          }}>{symbol}</span>
+          <div style={{ position: 'absolute', right: 0 }}>
+            {isEditingNote ? (
+              <div 
+                ref={noteEditorRef}
+                style={{ 
+                  position: 'fixed',
+                  zIndex: 1000,
+                  background: 'white',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  width: '400px',
+                  maxWidth: '90vw',
+                  transition: 'all 0.3s ease',
+                  border: '1px solid #f0f0f0',
+                  ...(calculateEditorPosition() || {})
+                }}
+              >
+                <div style={{ 
+                  marginBottom: '12px', 
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span>编辑备注</span>
+                  <span style={{ 
+                    color: '#1890ff', 
+                    backgroundColor: '#e6f7ff', 
+                    padding: '2px 8px', 
+                    borderRadius: '4px',
+                    fontSize: '14px'
+                  }}>
+                    {symbol}
+                  </span>
+                </div>
+                <TextArea
+                  value={editedNote}
+                  onChange={(e) => {
+                    setEditedNote(e.target.value);
+                    // 自动调整高度
+                    const textarea = e.target as HTMLTextAreaElement;
+                    textarea.style.height = 'auto';
+                    textarea.style.height = `${textarea.scrollHeight}px`;
+                  }}
+                  placeholder="在此输入备注内容..."
+                  autoFocus
+                  autoSize={{ minRows: 3 }}
+                  style={{ 
+                    resize: 'none',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '4px',
+                    width: '100%',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    padding: '8px 12px',
+                    maxHeight: '60vh',
+                    overflowY: 'auto'
+                  }}
+                />
+                <div style={{ 
+                  marginTop: '12px',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '8px'
+                }}>
+                  <Button onClick={() => setIsEditingNote(false)}>
+                    取消
+                  </Button>
+                  <Button type="primary" onClick={handleNoteSave}>
+                    保存
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Tooltip title={note || '点击添加备注'} placement="topRight">
+                <div
+                  onClick={handleNoteEdit}
+                  style={{
+                    cursor: 'pointer',
+                    color: '#666',
+                    fontSize: '14px',
+                    maxWidth: 500,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'right'
+                  }}
+                >
+                  {note ? note.split('\n')[0].slice(0, 30) + (note.split('\n')[0].length > 30 ? '...' : '') : '+ 添加备注'}
+                </div>
+              </Tooltip>
+            )}
+          </div>
+        </div>
+      }
       style={{ marginBottom: 16 }}
       bodyStyle={{ padding: '12px' }}
     >
@@ -115,7 +303,7 @@ const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange 
             />
           </div>
         </Col>
-        <Col span={8} style={{ maxHeight: 400, overflowY: 'auto' }}>
+        <Col span={8} ref={analysisColRef} style={{ maxHeight: 400, overflowY: 'auto' }}>
           <StockAnalysis symbol={symbol} />
         </Col>
       </Row>
@@ -151,8 +339,21 @@ const StockDashboard: React.FC = () => {
   const fetchWatchlist = async () => {
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist`);
+      if (!response.ok) {
+        throw new Error('获取观察列表失败');
+      }
       const data = await response.json();
-      setWatchlist(data);
+      
+      // 完全替换现有的 watchlist 状态
+      setWatchlist({ groups: data.groups || {} });
+      
+      // 清理 stockRefs
+      stockRefs.current = {};
+      
+      // 清除选中状态
+      setSelectedStock(null);
+      setSelectedKeys([]);
+      
       // 默认展开所有分组
       setExpandedKeys(getAllFolderKeys(data.groups));
     } catch (error) {
@@ -170,20 +371,48 @@ const StockDashboard: React.FC = () => {
   // 获取所有唯一的股票
   const getAllStocks = () => {
     const allStocks = new Set<string>();
-    Object.values(watchlist.groups).forEach(group => {
+    
+    const addStocksFromGroup = (group: StockGroup) => {
+      // 添加当前分组的股票
       group.stocks.forEach(stock => allStocks.add(stock));
+      
+      // 递归处理子分组
+      if (group.subGroups) {
+        Object.values(group.subGroups).forEach(subGroup => {
+          addStocksFromGroup(subGroup);
+        });
+      }
+    };
+    
+    Object.values(watchlist.groups).forEach(group => {
+      addStocksFromGroup(group);
     });
+    
     return Array.from(allStocks);
   };
 
   // 获取已分组的股票
   const getGroupedStocks = () => {
     const groupedStocks = new Set<string>();
+    
+    const addStocksFromGroup = (group: StockGroup) => {
+      // 添加当前分组的股票
+      group.stocks.forEach(stock => groupedStocks.add(stock));
+      
+      // 递归处理子分组
+      if (group.subGroups) {
+        Object.values(group.subGroups).forEach(subGroup => {
+          addStocksFromGroup(subGroup);
+        });
+      }
+    };
+    
     Object.entries(watchlist.groups).forEach(([groupName, group]) => {
       if (groupName !== "默认分组") {
-        group.stocks.forEach(stock => groupedStocks.add(stock));
+        addStocksFromGroup(group);
       }
     });
+    
     return groupedStocks;
   };
 
@@ -194,25 +423,26 @@ const StockDashboard: React.FC = () => {
     return allStocks.filter(stock => !groupedStocks.has(stock));
   };
 
-  // 添加删除股票的处理函数
+  // 修改 handleDeleteStock 函数
   const handleDeleteStock = async (groupName: string, symbol: string) => {
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/watchlist/${groupName}/${symbol}`,
+        `${process.env.REACT_APP_API_URL}/api/watchlist/${encodeURIComponent(groupName)}/${encodeURIComponent(symbol)}`,
         {
           method: 'DELETE',
         }
       );
-
+  
       if (!response.ok) {
-        throw new Error('删除股票失败');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || '删除股票失败');
       }
-
+  
       await fetchWatchlist();
       message.success('删除成功');
     } catch (error) {
       console.error('删除股票失败:', error);
-      message.error('删除股票失败');
+      message.error(error instanceof Error ? error.message : '删除股票失败');
     }
   };
 
@@ -225,85 +455,181 @@ const StockDashboard: React.FC = () => {
     
     // 处理文件夹的拖拽
     if (dragKey.startsWith('folder-')) {
-      const sourceFolder = dragKey.replace('folder-', '');
-      let targetFolder = '';
-      
-      // 根据放置位置决定目标位置
-      if (dropPosition === -1 || dropPosition === 1) {
-        // 放在目标的前面或后面，移动到同级
-        const targetParts = dropKey.replace(/^(folder|stock)-/, '').split('/');
-        targetParts.pop(); // 移除最后一个部分
-        targetFolder = targetParts.join('/');
-      } else {
-        // 放在目标内部
-        targetFolder = dropKey.replace(/^(folder|stock)-/, '');
-      }
-      
-      // 防止将文件夹移动到自己下面
-      if (targetFolder.startsWith(sourceFolder)) {
-        message.error('不能将文件夹移动到其子文件夹中');
-        return;
-      }
-      
-      try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/groups/move`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            source_group: sourceFolder,
-            target_group: targetFolder,
-          }),
-        });
+        const sourceFolder = dragKey.replace('folder-', '');
+        const targetFolder = dropKey.replace(/^(folder|stock)-/, '');
+        
+        // 如果是重新排序（放在另一个文件夹的前面或后面）
+        if (dropPosition === -1 || dropPosition === 1) {
+            try {
+                const response = await fetch(`${process.env.REACT_APP_API_URL}/api/groups/reorder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        source_group: sourceFolder,
+                        target_group: targetFolder,
+                        position: dropPosition === -1 ? 'before' : 'after'
+                    }),
+                });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || '移动文件夹失败');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '重新排序失败');
+                }
+
+                const data = await response.json();
+                setWatchlist({ groups: data.groups });
+                message.success('重新排序成功');
+            } catch (error) {
+                console.error('重新排序失败:', error);
+                message.error(error instanceof Error ? error.message : '重新排序失败');
+            }
+            return;
         }
         
-        await fetchWatchlist();
-        message.success('移动成功');
-      } catch (error) {
-        console.error('移动文件夹失败:', error);
-        message.error(error instanceof Error ? error.message : '移动文件夹失败');
-      }
-      return;
+        // 如果是移动到另一个文件夹内部
+        try {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/groups/move`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    source_group: sourceFolder,
+                    target_group: dropPosition === 0 ? targetFolder : ''
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || '移动文件夹失败');
+            }
+
+            const data = await response.json();
+            setWatchlist({ groups: data.groups });
+            message.success('移动成功');
+        } catch (error) {
+            console.error('移动文件夹失败:', error);
+            message.error(error instanceof Error ? error.message : '移动文件夹失败');
+        }
+        return;
     }
     
     // 处理股票的拖拽
     if (dragKey.startsWith('stock-')) {
-      if (!dropKey.startsWith('folder-')) {
-        message.error('只能移动到文件夹中');
+      const symbol = dragKey.replace('stock-', '');
+      let fromGroup = '';
+      let toGroup = '';
+
+      // 确定源分组
+      for (const [groupName, group] of Object.entries(watchlist.groups)) {
+        if (group.stocks.includes(symbol)) {
+          fromGroup = groupName;
+          break;
+        }
+      }
+
+      // 确定目标位置和分组
+      if (dropKey.startsWith('folder-')) {
+        // 如果拖到文件夹上，移动到该文件夹
+        toGroup = dropKey.replace('folder-', '');
+      } else if (dropKey.startsWith('stock-')) {
+        // 如果拖到另一个股票上，可能是重新排序或移动到其他分组
+        const targetSymbol = dropKey.replace('stock-', '');
+        
+        // 找到目标股票所在的分组
+        for (const [groupName, group] of Object.entries(watchlist.groups)) {
+          if (group.stocks.includes(targetSymbol)) {
+            toGroup = groupName;
+            break;
+          }
+        }
+
+        // 如果在同一个分组内，执行重新排序
+        if (fromGroup === toGroup) {
+          try {
+            // 构建完整的分组路径
+            let fullGroupPath = '';
+            for (const [groupName, group] of Object.entries(watchlist.groups)) {
+              if (group.stocks.includes(targetSymbol)) {
+                fullGroupPath = groupName;
+                break;
+              }
+              if (group.subGroups) {
+                for (const [subGroupName, subGroup] of Object.entries(group.subGroups)) {
+                  if (subGroup.stocks.includes(targetSymbol)) {
+                    fullGroupPath = `${groupName}/${subGroupName}`;
+                    break;
+                  }
+                }
+                if (fullGroupPath) break;
+              }
+            }
+
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist/reorder`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                group: fullGroupPath,
+                source_symbol: symbol,
+                target_symbol: targetSymbol,
+                position: dropPosition === -1 ? 'before' : 'after'
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || '重新排序失败');
+            }
+
+            const data = await response.json();
+            setWatchlist({ groups: data.groups });
+            message.success('重新排序成功');
+            return;
+          } catch (error) {
+            console.error('重新排序失败:', error);
+            message.error(error instanceof Error ? error.message : '重新排序失败');
+            return;
+          }
+        }
+      } else {
+        // 如果拖到未分组区域
+        toGroup = '默认分组';
+      }
+
+      // 如果源分组和目标分组相同，不执行移动
+      if (fromGroup === toGroup) {
         return;
       }
-      
-      const targetGroup = dropKey.replace('folder-', '');
-      
-      // 获取要移动的所有股票
-      let stocksToMove: string[] = [];
-      if (selectedKeys.length > 1 && selectedKeys.includes(dragKey)) {
-        // 如果有多个选中项且包含被拖拽的项，移动所有选中的股票
-        stocksToMove = selectedKeys
-          .filter(key => typeof key === 'string' && key.startsWith('stock-'))
-          .map(key => (key as string).replace('stock-', ''));
-      } else {
-        // 否则只移动被拖拽的股票
-        stocksToMove = [dragKey.replace('stock-', '')];
-      }
-      
+
       try {
+        // 获取要移动的所有股票
+        let stocksToMove: string[] = [];
+        if (selectedKeys.length > 1 && selectedKeys.includes(dragKey)) {
+          // 如果有多个选中项且包含被拖拽的项，移动所有选中的股票
+          stocksToMove = selectedKeys
+            .filter(key => typeof key === 'string' && key.startsWith('stock-'))
+            .map(key => (key as string).replace('stock-', ''));
+        } else {
+          // 否则只移动被拖拽的股票
+          stocksToMove = [symbol];
+        }
+
         // 依次移动每个股票
-        for (const symbol of stocksToMove) {
+        for (const stockSymbol of stocksToMove) {
+          console.log(`Moving stock ${stockSymbol} from ${fromGroup} to ${toGroup}`);
           const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist/move`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              symbol,
-              from_group: "默认分组",
-              to_group: targetGroup,
+              symbol: stockSymbol,
+              from_group: fromGroup,
+              to_group: toGroup,
             }),
           });
 
@@ -312,9 +638,33 @@ const StockDashboard: React.FC = () => {
             throw new Error(errorData.error || '移动股票失败');
           }
         }
-        
-        await fetchWatchlist();
-        message.success(`成功移动 ${stocksToMove.length} 个股票`);
+
+        // 移动成功后立即更新状态
+        setWatchlist(prevState => {
+          const newState = {
+            groups: { ...prevState.groups }
+          };
+
+          // 从源分组中移除股票
+          if (newState.groups[fromGroup]) {
+            newState.groups[fromGroup] = {
+              ...newState.groups[fromGroup],
+              stocks: newState.groups[fromGroup].stocks.filter(s => !stocksToMove.includes(s))
+            };
+          }
+
+          // 添加到目标分组
+          if (newState.groups[toGroup]) {
+            newState.groups[toGroup] = {
+              ...newState.groups[toGroup],
+              stocks: [...newState.groups[toGroup].stocks, ...stocksToMove]
+            };
+          }
+
+          return newState;
+        });
+
+        message.success(`成功移动 ${stocksToMove.length} 个股票到 ${toGroup}`);
         setSelectedKeys([]); // 清除选中状态
       } catch (error) {
         console.error('移动股票失败:', error);
@@ -423,7 +773,6 @@ const StockDashboard: React.FC = () => {
 
   // 修改 generateTreeData 函数
   const generateTreeData = (group: StockGroup, groupPath: string): DataNode => {
-    // 先创建股票节点
     const stockNodes: DataNode[] = group.stocks.map((stock: string) => ({
       title: (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -438,7 +787,7 @@ const StockDashboard: React.FC = () => {
                   key: 'delete',
                   icon: <DeleteOutlined />,
                   label: '删除',
-                  onClick: () => handleDeleteStock('默认分组', stock)
+                  onClick: () => handleDeleteStock(groupPath, stock)
                 }
               ]
             }}
@@ -541,14 +890,14 @@ const StockDashboard: React.FC = () => {
       ),
       key: `folder-${groupPath}`,
       children: [...stockNodes, ...subGroupNodes],
-      selectable: false  // 添加这个属性，使文件夹不可选择
+      selectable: false
     };
   };
 
   // 修改 treeData 的生成
   const treeData: DataNode[] = [
     // 未分组的股票
-    ...getUngroupedStocks().map((stock: string) => ({
+    ...getUngroupedStocks().map((stock: string): DataNode => ({
       title: (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -618,6 +967,22 @@ const StockDashboard: React.FC = () => {
     }
   };
 
+  // 添加刷新目录的函数
+  const handleRefreshDirectory = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist`);
+      if (!response.ok) {
+        throw new Error('获取观察列表失败');
+      }
+      const data = await response.json();
+      setWatchlist({ groups: data.groups || {} });
+      message.success('目录刷新成功');
+    } catch (error) {
+      console.error('刷新目录失败:', error);
+      message.error('刷新目录失败');
+    }
+  };
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider width={300} theme="light" style={{ padding: '16px' }}>
@@ -625,7 +990,7 @@ const StockDashboard: React.FC = () => {
           <StockSearch 
             onSelect={(symbol) => {
               setSelectedStock(symbol);
-              fetchWatchlist();
+              fetchWatchlist();  // 刷新观察列表
             }} 
             style={{ width: '100%' }}
           />
@@ -639,6 +1004,12 @@ const StockDashboard: React.FC = () => {
             >
               新建文件夹
             </Button>
+            <Tooltip title="刷新目录" placement="bottom">
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={handleRefreshDirectory}
+              />
+            </Tooltip>
             <Tooltip 
               title={expandedKeys.length === 0 ? "展开所有文件夹" : "折叠所有文件夹"}
               placement="bottom"
@@ -660,13 +1031,11 @@ const StockDashboard: React.FC = () => {
             selectedKeys={selectedKeys}
             onExpand={handleExpand}
             onSelect={(keys) => {
-              // 只允许选择股票节点
               const validKeys = keys.filter(key => 
                 typeof key === 'string' && key.startsWith('stock-')
               );
               setSelectedKeys(validKeys);
               
-              // 如果只选中了一个股票，还是要触发跳转
               if (validKeys.length === 1) {
                 const symbol = (validKeys[0] as string).replace('stock-', '');
                 setSelectedStock(symbol);
@@ -713,15 +1082,16 @@ const StockDashboard: React.FC = () => {
           />
         </div>
         
-        {/* 修改未分组股票的渲染 */}
+        {/* 渲染未分组股票 */}
         {getUngroupedStocks().length > 0 && (
           <div>
+            <h2 style={{ margin: '16px 0' }}>未分组股票</h2>
             {getUngroupedStocks().map(symbol => (
               <div 
                 key={symbol}
                 ref={(el: HTMLDivElement | null) => {
                   stockRefs.current[symbol] = el;
-                  return undefined;  // 显式返回 undefined
+                  return undefined;
                 }}
                 id={`stock-${symbol}`}
               >
@@ -734,29 +1104,47 @@ const StockDashboard: React.FC = () => {
           </div>
         )}
         
-        {/* 修改分组股票的渲染 */}
+        {/* 渲染分组和子分组的股票 */}
         {Object.entries(watchlist.groups)
           .filter(([groupName]) => groupName !== "默认分组")
-          .map(([groupName, group]) => (
-            <div key={groupName}>
-              <h2 style={{ margin: '16px 0' }}>{groupName}</h2>
-              {group.stocks.map(symbol => (
-                <div 
-                  key={symbol}
-                  ref={(el: HTMLDivElement | null) => {
-                    stockRefs.current[symbol] = el;
-                    return undefined;  // 显式返回 undefined
-                  }}
-                  id={`stock-${symbol}`}
-                >
-                  <StockCard
-                    symbol={symbol}
-                    timeframe={timeframe}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
+          .map(([groupName, group]) => {
+            const renderStockGroup = (stocks: string[], indent: number = 0) => (
+              <>
+                {stocks.map(symbol => (
+                  <div 
+                    key={symbol}
+                    ref={(el: HTMLDivElement | null) => {
+                      stockRefs.current[symbol] = el;
+                      return undefined;
+                    }}
+                    id={`stock-${symbol}`}
+                    style={{ marginLeft: `${indent}px` }}
+                  >
+                    <StockCard
+                      symbol={symbol}
+                      timeframe={timeframe}
+                    />
+                  </div>
+                ))}
+              </>
+            );
+
+            return (
+              <div key={groupName}>
+                <h2 style={{ margin: '16px 0' }}>{groupName}</h2>
+                {/* 渲染当前分组的股票 */}
+                {renderStockGroup(group.stocks)}
+                
+                {/* 渲染子分组的股票 */}
+                {group.subGroups && Object.entries(group.subGroups).map(([subGroupName, subGroup]) => (
+                  <div key={`${groupName}-${subGroupName}`}>
+                    <h3 style={{ margin: '16px 0', paddingLeft: '20px' }}>{subGroupName}</h3>
+                    {renderStockGroup(subGroup.stocks, 20)}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
       </Content>
     </Layout>
   );
