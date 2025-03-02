@@ -1,4 +1,4 @@
-# 📈 TradeVision: Stock Market Monitoring Platform
+# 📈 MarketVision: Stock Market Monitoring Platform
 
 ![Python Version](https://img.shields.io/badge/Python-3.9%2B-blue)
 ![Node Version](https://img.shields.io/badge/Node.js-16%2B-green)
