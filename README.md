@@ -4,7 +4,7 @@
 ![Node Version](https://img.shields.io/badge/Node.js-16%2B-green)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-美股行情监控与分析平台，集成实时价格追踪、技术指标可视化及历史数据回溯功能。
+美股行情监控与分析平台，集成价格追踪、技术指标可视化及历史数据回溯功能。
 
 ![Platform Preview](https://github.com/user-attachments/assets/bcfeb363-f93a-4d39-8ba5-d7b4b5e111e2)
 
