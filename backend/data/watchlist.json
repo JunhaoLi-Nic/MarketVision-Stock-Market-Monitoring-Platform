@@ -12,14 +12,14 @@
         "description": null,
         "stocks": [
           "XIACY",
-          "BABA",
+          "BABA"
         ]
       },
       "美股": {
         "description": null,
         "stocks": [
           "UBER",
-          "ABNB",
+          "ABNB"
         ]
       }
     }
