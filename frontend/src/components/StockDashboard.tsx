@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Row, Col, Select, Spin, message, Layout, Menu, Input, Button, Modal, Form, Dropdown, Space, notification, Badge, AutoComplete, DatePicker, Tree, Tooltip } from 'antd';
 import { PlusOutlined, DeleteOutlined, FolderOutlined, MoreOutlined, AlertOutlined, StockOutlined, ExpandOutlined, CompressOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import { AdvancedRealTimeChart } from 'react-ts-tradingview-widgets';
@@ -10,6 +10,7 @@ import type { DataNode, TreeProps, EventDataNode } from 'antd/es/tree';
 import type { Key } from 'rc-tree/lib/interface';
 import type { MenuProps } from 'antd';
 import { StockSearch } from './StockSearch';
+import '../css/StockDashboard.css';
 
 const { Sider, Content } = Layout;
 const { Search, TextArea } = Input;
@@ -175,91 +176,33 @@ const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange 
   return (
     <Card 
       title={
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          position: 'relative',
-          justifyContent: 'center',
-          minHeight: '32px'
-        }}>
-          <span style={{ 
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            fontWeight: 500
-          }}>{symbol}</span>
-          <div style={{ position: 'absolute', right: 0 }}>
+        <div className="stock-card-title">
+          <span className="stock-card-symbol">{symbol}</span>
+          <div className="stock-card-note-container">
             {isEditingNote ? (
               <div 
                 ref={noteEditorRef}
-                style={{ 
-                  position: 'fixed',
-                  zIndex: 1000,
-                  background: 'white',
-                  padding: '16px',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  width: '400px',
-                  maxWidth: '90vw',
-                  transition: 'all 0.3s ease',
-                  border: '1px solid #f0f0f0',
-                  ...(calculateEditorPosition() || {})
-                }}
+                className="note-editor"
+                style={calculateEditorPosition() || {}}
               >
-                <div style={{ 
-                  marginBottom: '12px', 
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
+                <div className="note-editor-header">
                   <span>编辑备注</span>
-                  <span style={{ 
-                    color: '#1890ff', 
-                    backgroundColor: '#e6f7ff', 
-                    padding: '2px 8px', 
-                    borderRadius: '4px',
-                    fontSize: '14px'
-                  }}>
-                    {symbol}
-                  </span>
+                  <span className="note-editor-symbol">{symbol}</span>
                 </div>
                 <TextArea
                   value={editedNote}
                   onChange={(e) => {
                     setEditedNote(e.target.value);
-                    // 自动调整高度
-                    const textarea = e.target as HTMLTextAreaElement;
-                    textarea.style.height = 'auto';
-                    textarea.style.height = `${textarea.scrollHeight}px`;
+                    autoAdjustHeight(e.target);
                   }}
                   placeholder="在此输入备注内容..."
                   autoFocus
                   autoSize={{ minRows: 3 }}
-                  style={{ 
-                    resize: 'none',
-                    border: '1px solid #d9d9d9',
-                    borderRadius: '4px',
-                    width: '100%',
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                    padding: '8px 12px',
-                    maxHeight: '60vh',
-                    overflowY: 'auto'
-                  }}
+                  className="note-editor-textarea"
                 />
-                <div style={{ 
-                  marginTop: '12px',
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '8px'
-                }}>
-                  <Button onClick={() => setIsEditingNote(false)}>
-                    取消
-                  </Button>
-                  <Button type="primary" onClick={handleNoteSave}>
-                    保存
-                  </Button>
+                <div className="note-editor-buttons">
+                  <Button onClick={() => setIsEditingNote(false)}>取消</Button>
+                  <Button type="primary" onClick={handleNoteSave}>保存</Button>
                 </div>
               </div>
             ) : (
@@ -284,12 +227,12 @@ const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange 
           </div>
         </div>
       }
-      style={{ marginBottom: 16 }}
+      className="stock-card"
       bodyStyle={{ padding: '12px' }}
     >
       <Row gutter={16}>
         <Col span={16}>
-          <div style={{ height: 400 }}>
+          <div className="stock-card-chart">
             <AdvancedRealTimeChart
               symbol={symbol}
               interval={timeframe === "BACKTEST" ? "D" : timeframe}
@@ -303,7 +246,7 @@ const StockCard: React.FC<StockCardProps> = ({ symbol, timeframe, backTestRange 
             />
           </div>
         </Col>
-        <Col span={8} ref={analysisColRef} style={{ maxHeight: 400, overflowY: 'auto' }}>
+        <Col span={8} ref={analysisColRef} className="stock-card-analysis">
           <StockAnalysis symbol={symbol} />
         </Col>
       </Row>
@@ -336,9 +279,14 @@ const StockDashboard: React.FC = () => {
   };
 
   // 获取观察列表
-  const fetchWatchlist = async () => {
+  const fetchWatchlist = useCallback(async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      });
       if (!response.ok) {
         throw new Error('获取观察列表失败');
       }
@@ -362,7 +310,7 @@ const StockDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   React.useEffect(() => {
     fetchWatchlist();
@@ -984,23 +932,23 @@ const StockDashboard: React.FC = () => {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider width={300} theme="light" style={{ padding: '16px' }}>
-        <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <Layout className="stock-dashboard-layout">
+      <Sider width={300} theme="light" className="stock-dashboard-sider">
+        <div className="stock-dashboard-controls">
           <StockSearch 
             onSelect={(symbol) => {
               setSelectedStock(symbol);
-              fetchWatchlist();  // 刷新观察列表
+              fetchWatchlist();
             }} 
             style={{ width: '100%' }}
           />
           
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="stock-dashboard-buttons">
             <Button 
               type="primary" 
               icon={<PlusOutlined />}
               onClick={() => setIsModalVisible(true)}
-              style={{ flex: 1 }}
+              className="new-folder-button"
             >
               新建文件夹
             </Button>
@@ -1072,10 +1020,10 @@ const StockDashboard: React.FC = () => {
         </Modal>
       </Sider>
 
-      <Content style={{ padding: '24px', overflowY: 'auto' }}>
-        <div style={{ marginBottom: '16px' }}>
+      <Content className="stock-dashboard-content">
+        <div>
           <Select
-            style={{ width: 120 }}
+            className="timeframe-select"
             value={timeframe}
             onChange={setTimeframe}
             options={timeframeOptions}
@@ -1085,7 +1033,7 @@ const StockDashboard: React.FC = () => {
         {/* 渲染未分组股票 */}
         {getUngroupedStocks().length > 0 && (
           <div>
-            <h2 style={{ margin: '16px 0' }}>未分组股票</h2>
+            <h2 className="group-title">未分组股票</h2>
             {getUngroupedStocks().map(symbol => (
               <div 
                 key={symbol}
@@ -1118,7 +1066,7 @@ const StockDashboard: React.FC = () => {
                       return undefined;
                     }}
                     id={`stock-${symbol}`}
-                    style={{ marginLeft: `${indent}px` }}
+                    className={indent > 0 ? "stock-list-item" : ""}
                   >
                     <StockCard
                       symbol={symbol}
@@ -1131,14 +1079,14 @@ const StockDashboard: React.FC = () => {
 
             return (
               <div key={groupName}>
-                <h2 style={{ margin: '16px 0' }}>{groupName}</h2>
+                <h2 className="group-title">{groupName}</h2>
                 {/* 渲染当前分组的股票 */}
                 {renderStockGroup(group.stocks)}
                 
                 {/* 渲染子分组的股票 */}
                 {group.subGroups && Object.entries(group.subGroups).map(([subGroupName, subGroup]) => (
                   <div key={`${groupName}-${subGroupName}`}>
-                    <h3 style={{ margin: '16px 0', paddingLeft: '20px' }}>{subGroupName}</h3>
+                    <h3 className="subgroup-title">{subGroupName}</h3>
                     {renderStockGroup(subGroup.stocks, 20)}
                   </div>
                 ))}

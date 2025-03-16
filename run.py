@@ -11,11 +11,12 @@ def run_backend():
     os.chdir(backend_dir)
     print("启动后端服务...")
     
-    # 在 Windows 上使用 shell=True
+    # 在 Windows 上使用 cmd.exe
     if sys.platform == 'win32':
         backend_process = subprocess.Popen(
             'uvicorn main:app --reload --port 8002',
-            shell=True
+            shell=True,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
         )
     else:
         backend_process = subprocess.Popen(
@@ -30,11 +31,12 @@ def run_frontend():
     os.chdir(frontend_dir)
     print("启动前端服务...")
     
-    # 在 Windows 上使用 shell=True
+    # 在 Windows 上使用 cmd.exe
     if sys.platform == 'win32':
         frontend_process = subprocess.Popen(
-            'npm start',
-            shell=True
+            'npm.cmd start',  # Use npm.cmd instead of npm
+            shell=True,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
         )
     else:
         frontend_process = subprocess.Popen(
@@ -67,18 +69,33 @@ def main():
         except KeyboardInterrupt:
             print("\n正在关闭服务...")
             
-            # 在 Windows 上
+            # 在 Windows 上使用特定的终止方法
             if sys.platform == 'win32':
-                backend_process.terminate()
-                frontend_process.terminate()
+                # Send Ctrl+C signal to process group
+                os.kill(backend_process.pid, signal.CTRL_BREAK_EVENT)
+                os.kill(frontend_process.pid, signal.CTRL_BREAK_EVENT)
+                
+                # Give processes time to shut down gracefully
+                time.sleep(2)
+                
+                # Force terminate if still running
+                if backend_process.poll() is None:
+                    backend_process.terminate()
+                if frontend_process.poll() is None:
+                    frontend_process.terminate()
             else:
                 # 在 Unix 系统上发送 SIGTERM 信号
                 backend_process.send_signal(signal.SIGTERM)
                 frontend_process.send_signal(signal.SIGTERM)
             
             # 等待进程结束
-            backend_process.wait()
-            frontend_process.wait()
+            try:
+                backend_process.wait(timeout=5)
+                frontend_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                # Force kill if timeout
+                backend_process.kill()
+                frontend_process.kill()
             
             print("服务已关闭")
             

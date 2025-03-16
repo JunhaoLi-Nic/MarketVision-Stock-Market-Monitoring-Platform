@@ -80,12 +80,14 @@ if not watchlist_file.exists():
             "stocks": ["MARA", "RIOT", "COIN"]
         }
     }
-    watchlist_file.write_text(json.dumps(initial_data, ensure_ascii=False, indent=2))
+    with open(watchlist_file, 'w', encoding='utf-8') as f:
+        json.dump(initial_data, f, ensure_ascii=False, indent=2)
 
 def load_watchlist():
     """从文件加载观察列表"""
     try:
-        return json.loads(watchlist_file.read_text())
+        with open(watchlist_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
     except Exception as e:
         logger.error(f"Error loading watchlist: {str(e)}")
         return {}
@@ -93,7 +95,8 @@ def load_watchlist():
 def save_watchlist(data):
     """保存观察列表到文件"""
     try:
-        watchlist_file.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+        with open(watchlist_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.error(f"Error saving watchlist: {str(e)}")
         raise

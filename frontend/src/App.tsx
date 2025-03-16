@@ -1,16 +1,25 @@
 import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 import './App.css';
+import Header from './components/header';
 import StockDashboard from './components/StockDashboard';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>股票监控分析平台</h1>
+    <div className="App" style={{ padding: 0 }}>
+      <header>
+        <Header />
       </header>
-      <main>
-        <StockDashboard />
-      </main>
+        
+        <main>
+            <StockDashboard />
+            <Routes>
+                <Route path="/" element={<StockDashboard />} />
+                <Route path="/aboutme" element={<div>Daily Task Page</div>} />
+                <Route path="/resume" element={<div>Resume Page</div>} />
+                <Route path="/projects" element={<div>Projects Page</div>} />
+            </Routes>
+        </main>
     </div>
   );
 }

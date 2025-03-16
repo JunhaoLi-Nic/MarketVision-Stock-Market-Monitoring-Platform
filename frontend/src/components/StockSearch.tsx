@@ -3,12 +3,15 @@ import { AutoComplete, Input, Spin, message } from 'antd';
 import { PlusCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { debounce } from 'lodash';
 import type { SelectProps } from 'antd/es/select';
+import '../css/StockSearch.css';
 
+// Component props interface
 interface StockSearchProps {
   onSelect: (symbol: string) => void;
   style?: React.CSSProperties;
 }
 
+// Stock data interface
 interface StockSuggestion {
   symbol: string;
   name: string;
@@ -16,59 +19,18 @@ interface StockSuggestion {
   logo?: string;
 }
 
-// 使用普通的 CSS 类和内联样式替代 styled-components
-const styles = {
-  suggestionItem: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '8px 12px',
-  },
-  stockInfo: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '4px',
-  },
-  ticker: {
-    fontWeight: 600,
-    color: '#1a1a1a',
-  },
-  companyName: {
-    color: '#666',
-    fontSize: '12px',
-  },
-  exchangeTag: {
-    fontSize: '11px',
-    padding: '2px 6px',
-    borderRadius: '4px',
-    backgroundColor: '#f0f0f0',
-    color: '#666',
-  },
-  addButton: {
-    cursor: 'pointer',
-    transition: 'opacity 0.2s',
-    opacity: 0.6,
-    ':hover': {
-      opacity: 1,
-    },
-  },
-  rightSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-};
-
 const formatCompanyName = (name: string, isMobile: boolean): string => {
   const maxLength = isMobile ? 20 : 35;
   return name.length > maxLength ? `${name.slice(0, maxLength-3)}...` : name;
 };
 
 export const StockSearch: React.FC<StockSearchProps> = ({ onSelect, style }) => {
+  // State management
   const [options, setOptions] = useState<SelectProps['options']>([]);
   const [loading, setLoading] = useState(false);
   const [searchCache] = useState<Map<string, StockSuggestion[]>>(new Map());
 
+  // Debounced search function to prevent too many API calls
   const searchStocks = useCallback(
     debounce(async (query: string) => {
       if (!query) {
@@ -115,63 +77,21 @@ export const StockSearch: React.FC<StockSearchProps> = ({ onSelect, style }) => 
     []
   );
 
+  // Format search results into dropdown options
   const formatAndSetOptions = (suggestions: StockSuggestion[]) => {
     const isMobile = window.innerWidth < 768;
     const formattedOptions = suggestions.map(item => ({
       value: item.symbol,
       label: (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          padding: '8px 12px', 
-          width: '100%' 
-        }}>
-          {/* 左侧内容：股票代码和公司名称（垂直布局） */}
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '4px', 
-            flex: 1, // 关键：占据剩余空间
-            overflow: 'hidden' // 防止内容溢出
-          }}>
-            <span style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            minWidth: '120px', // 关键：固定最小宽度
-            marginLeft: '12px', // 与左侧内容保持间距
-            flexShrink: 0 // 禁止挤压
-          }}>{item.symbol}</span>
-            <span style={{ 
-              color: '#666', 
-              wordBreak: 'break-word' // 允许长名称换行
-            }}>
-              {item.name}
-            </span>
+        <div className="stock-suggestion-item">
+          <div className="stock-info">
+            <span className="stock-symbol">{item.symbol}</span>
+            <span className="stock-name">{formatCompanyName(item.name, isMobile)}</span>
           </div>
-  
-          {/* 右侧内容：交易所代码和加号图标 */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            minWidth: '120px', // 关键：固定最小宽度
-            marginLeft: '12px', // 与左侧内容保持间距
-            flexShrink: 0 // 禁止挤压
-          }}>
-            <span style={{ fontSize: '12px', color: '#888' }}>
-              {item.exchange}
-            </span>
+          <div className="stock-right-section">
+            <span className="stock-exchange">{item.exchange}</span>
             <PlusCircleOutlined
-              style={{ 
-                cursor: 'pointer', 
-                opacity: 0.6, 
-                fontSize: '20px',
-                flexShrink: 0 // 图标禁止挤压
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.6')}
+              className="add-stock-icon"
               onClick={(e) => {
                 e.stopPropagation();
                 handleAddStock(item.symbol);
@@ -184,18 +104,19 @@ export const StockSearch: React.FC<StockSearchProps> = ({ onSelect, style }) => 
     setOptions(formattedOptions);
   };
 
+  // Handle adding a stock to the watchlist
   const handleAddStock = async (symbol: string) => {
     try {
       console.log('开始添加股票:', symbol);
       
-      // 首先检查股票是否已经存在于任何分组中
+      // Check if stock already exists in any group
       const watchlistResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/watchlist`);
       if (!watchlistResponse.ok) {
         throw new Error('获取观察列表失败');
       }
       const watchlistData = await watchlistResponse.json();
       
-      // 检查股票是否已存在于任何分组
+      // Check if stock exists in any group
       let existingGroup = null;
       Object.entries(watchlistData.groups).forEach(([groupName, group]: [string, any]) => {
         if (group.stocks.includes(symbol)) {
@@ -236,7 +157,7 @@ export const StockSearch: React.FC<StockSearchProps> = ({ onSelect, style }) => 
       }
 
       message.success(data.message || `成功添加 ${symbol} 到观察列表`);
-      onSelect(symbol);  // 通知父组件更新
+      onSelect(symbol);  // Notify parent component
     } catch (error) {
       console.error('添加股票失败:', error);
       message.error(error instanceof Error ? error.message : '添加股票失败');
@@ -254,7 +175,7 @@ export const StockSearch: React.FC<StockSearchProps> = ({ onSelect, style }) => 
     >
       <Input
         placeholder="搜索股票代码或公司名称"
-        prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+        prefix={<SearchOutlined className="search-icon" />}
         allowClear
       />
     </AutoComplete>

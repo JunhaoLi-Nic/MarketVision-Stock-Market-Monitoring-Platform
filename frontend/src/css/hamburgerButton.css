@@ -1,0 +1,15 @@
+/* Styles for the hamburger menu button */
+.hamburger {
+    display: none; /* Hide by default, shown in media query below */
+    background: none;
+    border: none;
+    color: #000;
+    font-size: 40px;
+    cursor: pointer;
+  }
+  
+  @media (max-width: 1080px) {
+    .hamburger {
+      display: block; /* Show hamburger icon on smaller screens */
+    }
+}
