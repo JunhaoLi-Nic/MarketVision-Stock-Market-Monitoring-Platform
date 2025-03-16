@@ -1,15 +1,23 @@
 import React from 'react';
-import '../../css/hamburgerButton.css';
+import '../../css/HamburgerButton.css';
 
-// Define a type for the props expected by the HamburgerButton component
-type HamburgerButtonProps = {
-  onClick: () => void;  // Specify that onClick is a function that returns void
+interface HamburgerButtonProps {
+    onClick: () => void;
+    isOpen: boolean;
+}
+
+const HamburgerButton: React.FC<HamburgerButtonProps> = ({ onClick, isOpen }) => {
+    return (
+        <button 
+            className={`hamburger-button ${isOpen ? 'open' : ''}`} 
+            onClick={onClick}
+            aria-label="Toggle menu"
+        >
+            <span className="line"></span>
+            <span className="line"></span>
+            <span className="line"></span>
+        </button>
+    );
 };
-
-const HamburgerButton: React.FC<HamburgerButtonProps> = ({ onClick }) => (
-  <button className="hamburger" onClick={onClick} aria-label="☰">
-    ☰
-  </button>
-);
 
 export default HamburgerButton;

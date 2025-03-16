@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import './App.css';
 import Header from './components/header';
 import StockDashboard from './components/StockDashboard';
+import DailyTask from './components/DailyTask';
 
 function App() {
   return (
@@ -10,16 +11,14 @@ function App() {
       <header>
         <Header />
       </header>
-        
-        <main>
-            <StockDashboard />
-            <Routes>
-                <Route path="/" element={<StockDashboard />} />
-                <Route path="/aboutme" element={<div>Daily Task Page</div>} />
-                <Route path="/resume" element={<div>Resume Page</div>} />
-                <Route path="/projects" element={<div>Projects Page</div>} />
-            </Routes>
-        </main>
+      
+      <main style={{ marginTop: '80px', padding: '20px' }}>
+        <Routes>
+          <Route path="/" element={<StockDashboard />} />
+          <Route path="/DailyTask" element={<DailyTask />} />
+          <Route path="/ContactMe" element={<div>Contact me</div>} />
+        </Routes>
+      </main>
     </div>
   );
 }

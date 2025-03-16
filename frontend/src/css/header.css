@@ -1,85 +1,122 @@
 .header {
-    margin: 0px 112px 73px 120.4px;
-    padding-top: 2%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     display: flex;
-    flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    width: 80%;
-    box-sizing: border-box;
-  }
-  
-  .logo {
+    padding: 1rem 2rem;
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    height: 60px;
+}
+
+.logo {
     display: flex;
-    flex-direction: row;
     align-items: center;
-  }
-  
-  .logo-1 {
+}
+
+.logo-1 {
     width: 90px; /* Adjust width to desired crop */
     height: 110px; /* Adjust height to desired crop */
     overflow: hidden; /* Hides parts of the image outside this container */
     position: relative; /* Needed if positioning the image absolutely */
-  }
-  
-  .group-26 {
+}
+
+.group-26 {
     width: 23.2px;
     height: 34.7px;
-  }
-  
-  .personal-1 {
-    display: inline-block;
-    font-family: 'Sora', sans-serif;
-    font-weight: 700;
-    font-size: 30px;
-    color: #000;
-    text-transform: capitalize;
-    padding-left: 10%;
-    text-decoration: none; /* Remove underline */
-  }
-  
-  .personal-1:hover, .personal-1:focus {
-    color: #7ac7c4;  /* Change to desired hover/focus color */
-  }
-  
-  .taskbaar {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    width: auto;
-  }
-  
-  .taskbaar .link {
-    position: relative;
-    padding: 10px;
-    color: #000;
-    font-family: 'Sora', sans-serif;
-    font-weight: 600;
-    font-size: 25px;
+}
+
+.personal-1 {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #1890ff;
     text-decoration: none;
-    text-transform: capitalize;
-  }
-  
-  .taskbaar .link::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
+    transition: color 0.3s ease;
+}
+
+.personal-1:hover {
+    color: #40a9ff;
+}
+
+.taskbaar {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+
+.link {
+    color: #333;
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.link:hover {
+    color: #1890ff;
+    background-color: rgba(24, 144, 255, 0.1);
+}
+
+.link.active {
+    color: #1890ff;
+    background-color: rgba(24, 144, 255, 0.1);
+    font-weight: 600;
+}
+
+.overlay {
+    position: fixed;
+    top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background-color: #000000;
-    transform: scaleX(0);
-    transition: transform 0.3s ease-in-out;
-    transform-origin: bottom left;
-    border-radius: 30px;
-  }
-  
-  .taskbaar .link:hover::after, .taskbaar .link:focus::after {
-    transform: scaleX(1);
-  }
-  
-  .button-8 {
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    .taskbaar {
+        position: fixed;
+        top: 60px;
+        right: -100%;
+        flex-direction: column;
+        background-color: white;
+        padding: 2rem;
+        height: calc(100vh - 60px);
+        width: 250px;
+        transition: right 0.3s ease;
+        box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+        gap: 1rem;
+        z-index: 1000;
+    }
+
+    .taskbaar.open {
+        right: 0;
+    }
+
+    .overlay {
+        display: block;
+    }
+
+    .link {
+        width: 100%;
+        text-align: left;
+        padding: 1rem;
+    }
+
+    .link:hover, .link.active {
+        background-color: rgba(24, 144, 255, 0.1);
+    }
+}
+
+.button-8 {
     display: flex;
     align-items: center;
     background: #000;
@@ -89,85 +126,85 @@
     cursor: pointer;
     box-sizing: border-box;
     margin-left: 30px;
-  }
-  
-  .button-8 a{
+}
+
+.button-8 a{
     color: white;
     display: flex;
     flex-direction: row;
-  }
-  
-  .button-8 a:hover{
+}
+
+.button-8 a:hover{
     color: #7ac7c4;  
-  }
-  
-  .resume-1 {
+}
+
+.resume-1 {
     margin-right: 10px;
     font-family: 'Sora', sans-serif;
     font-size: 20px;
-  }
-  
-  .download {
+}
+
+.download {
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-  
-  .icon {
+}
+
+.icon {
     width: 25px;
     height: 25px;
-  }
-  
-  /* Styles for the hamburger menu button */
-  .hamburger {
+}
+
+/* Styles for the hamburger menu button */
+.hamburger {
     display: none; /* Hide by default, shown in media query below */
     background: none;
     border: none;
     color: #000;
     font-size: 40px;
     cursor: pointer;
-  }
-  
-  /* Media query for smaller screens */
-  @media (max-width: 1080px) {
+}
+
+/* Media query for smaller screens */
+@media (max-width: 1080px) {
     .header {
-      margin: 10px 119px 0px 112.4px;
+        margin: 10px 119px 0px 112.4px;
     }
-  
+
     .hamburger {
-      display: block; /* Show hamburger icon on smaller screens */
-      padding: 2% 10%
+        display: block; /* Show hamburger icon on smaller screens */
+        padding: 2% 10%
     }
-  
+
     .taskbaar, .button-8 {
-      display: none; /* Hide navigation links and resume button on smaller screens */
+        display: none; /* Hide navigation links and resume button on smaller screens */
     }
-  
+
     .taskbaar.open {
-      display: flex;
-      flex-direction: column;
-      position: absolute;
-      margin-top: 420px;
-      left: 0;
-      right: 0;
-      background-color: #FFF; /* Light background for visibility */
-      padding: 20px;
-      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-      z-index: 10;
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        margin-top: 420px;
+        left: 0;
+        right: 0;
+        background-color: #FFF; /* Light background for visibility */
+        padding: 20px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        z-index: 10;
     }
-  
+
     .button-8.inside-menu {
-      display: block; /* Display resume button inside the hamburger menu */
-      background: #000; /* Maintain black background */
-      color: #FFF; /* Text color */
-      margin-top: 10px;
-      padding: 5px 20px;
-      text-align: center; /* Center the text */
-      border-radius: 20px; /* Rounded corners */
-      margin-left: 0px;
+        display: block; /* Display resume button inside the hamburger menu */
+        background: #000; /* Maintain black background */
+        color: #FFF; /* Text color */
+        margin-top: 10px;
+        padding: 5px 20px;
+        text-align: center; /* Center the text */
+        border-radius: 20px; /* Rounded corners */
+        margin-left: 0px;
     }
-  
+
     button:focus, button:focus-visible {
-      outline: 10px ; 
-  }
-  }
+        outline: 10px ; 
+    }
+}
