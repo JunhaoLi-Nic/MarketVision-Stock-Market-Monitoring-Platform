@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, List, Typography, Tag, Space, Divider } from 'antd';
 import { CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import MarketRelationships from './MarketRelationships';
+import ICTKillZones from './ICTKillZones';
 
 const { Title } = Typography;
 
@@ -65,6 +66,11 @@ const DailyTask: React.FC = () => {
           </List.Item>
         )}
       />
+      
+      <Divider style={{ margin: '40px 0 20px' }} />
+      
+      {/* ICT Kill Zones Component */}
+      <ICTKillZones />
       
       <Divider style={{ margin: '40px 0 20px' }} />
       
