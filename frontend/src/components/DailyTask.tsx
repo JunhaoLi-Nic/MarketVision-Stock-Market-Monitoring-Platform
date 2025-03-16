@@ -3,6 +3,7 @@ import { Card, List, Typography, Tag, Space, Divider } from 'antd';
 import { CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import MarketRelationships from './MarketRelationships';
 import ICTKillZones from './ICTKillZones';
+import MarketIndices from './MarketIndices';
 
 const { Title } = Typography;
 
@@ -66,6 +67,11 @@ const DailyTask: React.FC = () => {
           </List.Item>
         )}
       />
+      
+      <Divider style={{ margin: '40px 0 20px' }} />
+      
+      {/* Market Indices Component */}
+      <MarketIndices />
       
       <Divider style={{ margin: '40px 0 20px' }} />
       

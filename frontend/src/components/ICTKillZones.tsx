@@ -107,7 +107,7 @@ const ICTKillZones: React.FC = () => {
       usEndTime: '22:00',
       melbourneTime: '10:00-13:00 AEST',
       chinaTime: '08:00-11:00 CST',
-      description: 'Asian market opening, potential for early price action setups'
+      description: 'Asian session opening provides early price action setups. Look for consolidation patterns, order blocks, and fair value gaps. Often sets the directional bias for the London session. Lower volatility but key for identifying accumulation zones and institutional positioning.'
     },
     {
       key: '2',
@@ -117,7 +117,7 @@ const ICTKillZones: React.FC = () => {
       usEndTime: '05:00',
       melbourneTime: '17:00-20:00 AEST',
       chinaTime: '15:00-18:00 CST',
-      description: 'European market opening, high liquidity and volatility'
+      description: 'European market opening brings high liquidity and volatility. Watch for strong directional moves, breaker blocks, and liquidity sweeps. Key time for institutional order flow and smart money concepts. Major forex pairs often make significant moves during this session.'
     },
     {
       key: '3',
@@ -127,7 +127,7 @@ const ICTKillZones: React.FC = () => {
       usEndTime: '10:00',
       melbourneTime: '23:00-01:00 AEST',
       chinaTime: '21:00-23:00 CST',
-      description: 'US market opening, major price movements and trading opportunities'
+      description: 'US market opening creates major price movements and trading opportunities. Focus on market structure breaks, liquidity grabs, and institutional price manipulation. Economic data releases during this time can create volatile swings. Highest volume period with potential for trend initiations.'
     },
     {
       key: '4',
@@ -137,7 +137,7 @@ const ICTKillZones: React.FC = () => {
       usEndTime: '12:00',
       melbourneTime: '02:00-03:00 AEST',
       chinaTime: '00:00-01:00 CST',
-      description: 'European market closing, potential reversals and continuation patterns'
+      description: 'European market closing often creates reversals and continuation patterns. Look for stop hunts, profit-taking moves, and market inefficiencies. Can provide excellent risk-reward setups as European traders close positions and liquidity decreases. Watch for price returning to key market structure levels.'
     }
   ];
 
@@ -207,6 +207,8 @@ const ICTKillZones: React.FC = () => {
       
       <p style={{ marginBottom: '20px' }}>
         Inner Circle Trader (ICT) kill zones represent optimal trading times with high liquidity and potential market movements.
+        These specific time windows are when institutional traders are most active, creating ideal conditions for retail traders to identify and capitalize on smart money movements.
+        Each kill zone has unique characteristics and trading opportunities based on which major financial centers are opening or closing.
         Times below are shown in US Eastern Time (EST), Melbourne Time (AEST), and China Time (CST).
         <strong> Currently active kill zones are highlighted.</strong>
       </p>
